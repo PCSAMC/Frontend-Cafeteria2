@@ -96,6 +96,12 @@ const AppRoutes = () => {
         <Route path={ROUTES.SESION_EXPIRADA} element={<SesionExpirada />} />
         <Route path={ROUTES.CUENTA_DESACTIVADA} element={<CuentaDesactivada />} />
         <Route path={ROUTES.NO_AUTORIZADO} element={<PantallaAccesoNoAutorizado />} />
+        
+        <Route element={<ProtectedRoute allowedRoles={['root', 'admin', 'cajero']} />}>
+          <Route path={ROUTES.PERFIL} element={<PantallaPerfil />} />
+          <Route path={ROUTES.CAMBIO_CONTRASENA} element={<PantallaCambioContraseñaCajero />} />
+        </Route>
+
 
 
         {/* ════ ROL: ROOT ════ */}
@@ -109,7 +115,6 @@ const AppRoutes = () => {
           <Route path={ROUTES.ROOT_BACKUPS} element={<div>Backups</div>} />
           
           {/* Rutas compartidas pero bajo el layout de root */}
-          <Route path={ROUTES.PERFIL} element={<PantallaPerfil />} />
           <Route path={ROUTES.CAMBIO_CONTRASENA} element={<PantallaCambioContraseñaCajero />} />
         </Route>
 
@@ -127,7 +132,6 @@ const AppRoutes = () => {
           <Route path={ROUTES.LOGS_ADMIN} element={<div>Logs</div>} />
           <Route path={ROUTES.NOTIFICACIONES} element={<div>Notificaciones</div>} />
           
-          <Route path={ROUTES.PERFIL} element={<PantallaPerfil />} />
           <Route path={ROUTES.CAMBIO_CONTRASENA} element={<PantallaCambioContraseñaCajero />} />
         </Route>
 
@@ -140,9 +144,8 @@ const AppRoutes = () => {
           <Route path={ROUTES.VENTAS_TURNO} element={<PantallaVentasTurnoActual />} />
           <Route path={ROUTES.VENTA_INDIVIDUAL} element={<PantallaVentaIndividual />} />
           <Route path="/resultado-cierre" element={<PantallaResultadoCierreTurno />} />
-                    <Route path={ROUTES.CAMBIO_CONTRASENA} element={<PantallaCambioContraseñaCajero />} />
+          <Route path={ROUTES.CAMBIO_CONTRASENA} element={<PantallaCambioContraseñaCajero />} />
 
-          <Route path={ROUTES.PERFIL} element={<PantallaPerfil />} />
         </Route>
 
         {/* Catch-all */}

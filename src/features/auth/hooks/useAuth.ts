@@ -39,9 +39,7 @@ export const useAuth = () => {
       localStorage.setItem('userData', JSON.stringify(response.user));
 
 
-      if (frontendRole === 'cajero' && response.requiresPwdChange) {
-            navigate(ROUTES.CAMBIO_CONTRASENA);
-            } else {
+      
            
             if (frontendRole === 'root') {
                 navigate(ROUTES.ROOT_DASHBOARD);
@@ -51,7 +49,7 @@ export const useAuth = () => {
                
                 navigate(ROUTES.PRE_TURNO);
             }
-            }
+            
 
     } catch (err: any) {
       authService.registrarAuditoria("LOGIN_FALLIDO", username);
