@@ -12,11 +12,10 @@ export const PantallaGestionAdministradores = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedAdmin, setSelectedAdmin] = useState(null);
 
-  // Extraemos lo necesario de nuestro hook (el hook puede ser .ts, pero lo consumimos aquí sin problemas)
- // Si useUserCrud por alguna razón devuelve undefined, admins será un array vacío
+  
 const { admins = [], loadingAdmins, getAdministrators, create, update } = useUserCrud();
 
-// Y en el filtro, añade una validación extra por si acaso
+
 const filtered = (admins || []).filter(a =>
   a?.fullName?.toLowerCase().includes(query.toLowerCase()) ||
   a?.username?.toLowerCase().includes(query.toLowerCase())
@@ -30,13 +29,13 @@ const filtered = (admins || []).filter(a =>
   const onSubmit = async (payload) => {
     try {
       if (selectedAdmin) {
-        // Modo Edición
+        
         await update(selectedAdmin.id, payload);
       } else {
-        // Modo Creación: Forzamos el roleId 2 (Administrator)
+        
         await create({ ...payload, roleId: 2 });
       }
-      // Actualizamos la tabla
+      
       await getAdministrators();
     } catch (error) {
       console.error("Error al guardar:", error);
@@ -44,7 +43,6 @@ const filtered = (admins || []).filter(a =>
   };
 
   const handleToggleStatus = async (admin) => {
-    // Simplemente enviamos el estado contrario al que tiene actualmente
     await update(admin.id, { active: !admin.active });
     await getAdministrators();
   };

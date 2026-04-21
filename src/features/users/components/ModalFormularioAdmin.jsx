@@ -27,7 +27,6 @@ export const ModalFormularioAdmin = ({ open, onClose, onSubmit, admin = null }) 
       const payload = { ...form };
       
       if (isEditing) {
-        // Si estamos editando y no se escribió password, lo quitamos del envío
         if (!payload.password) delete payload.password;
       }
 

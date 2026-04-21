@@ -2,24 +2,21 @@ import { useState, useEffect } from 'react';
 import { authService } from '../services/auth.service'; // Ajusta tu ruta
 
 export const useProfile = () => {
-  // Estados para contraseñas
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   
-  // Estados de feedback
+  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Estado del usuario
   const [userData, setUserData] = useState({
     nombre: "Cargando...",
     email: "...",
     rol: "..."
   });
 
-  // Cargar datos al iniciar
   useEffect(() => {
     const storedUser = localStorage.getItem('userData');
     const storedRole = localStorage.getItem('userRole');
@@ -38,7 +35,6 @@ export const useProfile = () => {
     }
   }, []);
 
-  // Manejar el submit (Sin redirección, ideal para el perfil)
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -63,7 +59,6 @@ export const useProfile = () => {
       await authService.changePassword(currentPassword, newPassword);
       setSuccess("¡Contraseña actualizada con éxito!");
       
-      // Limpiar inputs tras el éxito
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');

@@ -3,7 +3,6 @@ import { ShieldCheck, Lock, ChevronRight, KeyRound } from 'lucide-react';
 import { useChangePassword } from '../hooks/useCambioContraseña'; // Importamos el nuevo hook
 
 export const PantallaCambioContraseñaCajero = () => {
-  // Desestructuramos todo lo que nos da el hook
   const {
     currentPassword, setCurrentPassword,
     newPassword, setNewPassword,

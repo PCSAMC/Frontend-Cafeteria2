@@ -36,7 +36,6 @@ export const PantallaGestionCajeros = () => {
       if (selectedCajero) {
         await update(selectedCajero.id, payload);
       } else {
-        // Para cajeros usamos roleId: 3
         await create({ ...payload, roleId: 3 });
       }
       await getCashiers();
@@ -48,11 +47,9 @@ export const PantallaGestionCajeros = () => {
  const handleToggleStatus = async (usuario) => {
   try {
     if (usuario.active) {
-      // Si está ACTIVO, llamamos al nuevo endpoint especial
       await deactivate(usuario.id);
     } else {
-      // Si está INACTIVO, usamos el update normal para reactivarlo
-      // (A menos que tu Swagger muestre un endpoint /activate)
+     
       await update(usuario.id, { active: true });
     }
     
@@ -60,7 +57,6 @@ export const PantallaGestionCajeros = () => {
     await getCashiers(); 
     
   } catch (error) {
-    // Manejo de errores por jerarquía (según tu Swagger)
     console.error("Error al cambiar estado:", error);
     alert("No se pudo cambiar el estado. Verifica si tienes permisos sobre este rol.");
   }

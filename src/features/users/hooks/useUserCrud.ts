@@ -6,18 +6,17 @@ import { toast } from 'sonner';
 import { data } from 'react-router-dom';
 
 export const useUserCrud = () => {
-  // Ahora coinciden perfectamente los tipos
   const crud = useCrud<UserEntityDto, CreateUserDto, UpdateUserDto>(userService);
   
   const [admins, setAdmins] = useState<UserEntityDto[]>([]);
   const [loadingAdmins, setLoadingAdmins] = useState(false);
-const [cashiers, setCashiers] = useState<UserEntityDto[]>([]); // Estado para cajeros
+const [cashiers, setCashiers] = useState<UserEntityDto[]>([]); 
   const [loading, setLoading] = useState(false);
   const getAdministrators = useCallback(async () => {
     setLoadingAdmins(true);
     try {
       const data = await userService.getAdmins();
-      console.log('Administradores obtenidos:', data); // LOG para verificar los datos
+      console.log('Administradores obtenidos:', data); 
       setAdmins(data);
     } catch (err: any) {
       toast.error('Error al cargar administradores');

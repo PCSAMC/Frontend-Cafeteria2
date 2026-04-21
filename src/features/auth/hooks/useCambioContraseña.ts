@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { authService } from '../services/auth.service'; // Ajusta la ruta a tu servicio
+import { authService } from '../services/auth.service'; 
 import { ROUTES } from '@/utils/constants';
 
 export const useChangePassword = () => {
@@ -16,7 +16,6 @@ export const useChangePassword = () => {
     e.preventDefault();
     setError('');
 
-    // 1. Validaciones del frontend
     if (newPassword.length < 6) {
       setError("La nueva contraseña debe tener al menos 6 caracteres.");
       return;
@@ -29,10 +28,8 @@ export const useChangePassword = () => {
     setLoading(true);
 
     try {
-      // 2. Llamada al backend
       await authService.changePassword(currentPassword, newPassword);
 
-      // 3. Actualizamos los datos locales
       const userDataStr = localStorage.getItem('userData');
       if (userDataStr) {
         const userData = JSON.parse(userDataStr);
@@ -42,7 +39,6 @@ export const useChangePassword = () => {
 
       alert("¡Contraseña actualizada con éxito!");
 
-      // 4. Redirección inteligente según el rol
       const userRole = localStorage.getItem('userRole');
       
       if (userRole === 'root') {

@@ -7,15 +7,13 @@ class UserService extends BaseService<UserEntityDto, CreateUserDto, UpdateUserDt
   }
   
   async create(data: CreateUserDto): Promise<UserEntityDto> {
-  // Ignoramos this.endpoint y usamos la ruta exacta del Swagger
   const response = await apiClient.post<UserEntityDto>('/auth/register', data);
   return response.data;
 }
-  // Sobrescribimos getAll para que use su estructura de 'items'
   async getAll(params: Record<string, any> = {}): Promise<UserEntityDto[]> {
     const response = await apiClient.get<UsersResponseDto>(this.endpoint, { params });
-    console.log('Respuesta de getAll:', response.data); // LOG para verificar la estructura
-    return response.data.items; // Extraemos los items según tu UsersResponseDto
+    console.log('Respuesta de getAll:', response.data); 
+    return response.data.items; 
   }
 
   // Método específico para Administradores
@@ -35,7 +33,7 @@ class UserService extends BaseService<UserEntityDto, CreateUserDto, UpdateUserDt
        
       }
     });
-    console.log('Respuesta de getCashiers:', response.data.items); // LOG para verificar la estructura
+    console.log('Respuesta de getCashiers:', response.data.items);
     return response.data.data;
   }
 }
