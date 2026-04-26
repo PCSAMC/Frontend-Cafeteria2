@@ -32,4 +32,7 @@ export const ROUTES = {
   POS:                      "/pos",
   VENTAS_TURNO:             "/ventas-turno",
   VENTA_INDIVIDUAL:         "/ventas/:id",
+  DETALLE_VENTA:            "/ventas/:id/detalle",
+  RESULTADO_CIERRE:         "/resultado-cierre",
+  COMPROBANTE:              "/comprobante/:id",
 };

@@ -10,6 +10,7 @@ apiClient.interceptors.request.use(
   (config) => {
     // 1. Cambiamos 'token' por 'accessToken' para que coincida con tu Login
     const token = localStorage.getItem('accessToken'); 
+    console.log('Token obtenido para la solicitud:', token); // Debugging
     
     // 2. Verificamos que sea un token válido antes de enviarlo
     if (token && token !== 'undefined' && token !== 'null') {
@@ -32,6 +33,7 @@ export class BaseService<T, CreateDto = Partial<T>, UpdateDto = Partial<T>> {
 
   // Cambiamos el retorno a 'any' o una estructura genérica para soportar la paginación
   async getAll(params: Record<string, any> = {}): Promise<any> {
+    console.log('Parámetros para getAll:', params); // Debugging
     const response = await apiClient.get(this.endpoint, { params });
     return response.data;
   }
@@ -43,6 +45,7 @@ export class BaseService<T, CreateDto = Partial<T>, UpdateDto = Partial<T>> {
 
   async create(data: CreateDto): Promise<T> {
     const response = await apiClient.post<T>(this.endpoint, data);
+    console.log('Respuesta del servidor al crear:', response.data); // Debugging
     return response.data;
   }
 

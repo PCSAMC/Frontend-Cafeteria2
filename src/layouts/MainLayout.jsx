@@ -41,7 +41,6 @@ const SIDEBAR_LINKS = {
 
   // ── CAJERO ────────────────────────────────────────
   cajero: [
-    { title: "Estado de turno",     icon: ShieldAlert,     path: ROUTES.PRE_TURNO },
     { title: "Punto de Venta",      icon: ShoppingCart,    path: ROUTES.POS },
     { title: "Ventas del turno",    icon: ListOrdered,     path: ROUTES.VENTAS_TURNO },
   ],

@@ -31,14 +31,17 @@ export const useCrud = <T extends { id: string | number }, CreateDto, UpdateDto>
   }, [serviceInstance]);
 
   const create = async (newData: CreateDto) => {
+    console.log('Datos para crear:', newData); // Debugging
     setLoading(true);
     try {
       const result = await serviceInstance.create(newData);
       setData((prev) => [...prev, result]);
       toast.success('Creado exitosamente');
+      console.log('Resultado de la creación:', result); // Debugging
       return result;
     } catch (err: any) {
       toast.error('Error al crear');
+      console.error('Error al crear:', err); // Debugging
       throw err;
     } finally {
       setLoading(false);
