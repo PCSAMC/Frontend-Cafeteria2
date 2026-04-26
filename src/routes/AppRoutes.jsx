@@ -44,17 +44,20 @@ import { HistorialMovimientosStock } from "@/features/inventory/pages/HistorialM
 
 // ════════════════════════════════════════════════════════
 //  TURNOS  —  Sergio
-// ════════════════════════════════════════════════════════
-import { PantallaTurnos } from "@/features/shifts/pages/PantallaTurnos";
-import { PantallaResultadoCierreTurno } from "@/features/shifts/pages/PantallaResultadoCierreTurno";
-import { PantallaPreTurno } from "@/features/shifts/pages/PantallaPre-turno";
+// ════════════════════════════════════════════════════════       
+import { PantallaTurnos }                   from "@/features/shifts/pages/PantallaTurnos";
+import { PantallaResultadoCierreTurno }     from "@/features/shifts/pages/PantallaResultadoCierreTurno";
+import { PantallaPreTurno }                 from "@/features/shifts/pages/PantallaPre-turno";
+import { PantallaVentasTurnoActual }        from "@/features/shifts/pages/PantallaVentasTurnoActual";
+
 
 // ════════════════════════════════════════════════════════
 //  POS  —  Sergio
 // ════════════════════════════════════════════════════════
-import { PantallaPos } from "@/features/pos/pages/PantallaPOS";
-import { PantallaVentasTurnoActual } from "@/features/pos/pages/PantallaVentasTurnoActual";
-import { PantallaVentaIndividual } from "@/features/pos/pages/PantallaVentaIndividual";
+import { PantallaPos }                     from "@/features/pos/pages/PantallaPos";
+import { PantallaVentaIndividual }          from "@/features/pos/pages/PantallaVentaIndividual";
+import { PantallaDetalleVenta }            from "@/features/pos/pages/PantallaDetalleVneta";
+import { PantallaComprobante }             from "@/features/pos/pages/PantallaComprobante";
 
 // ════════════════════════════════════════════════════════
 //  NOTIFICACIONES  —  Andrea
@@ -182,22 +185,14 @@ const AppRoutes = () => {
           />
           <Route path={ROUTES.PRE_TURNO} element={<PantallaPreTurno />} />
           <Route path={ROUTES.POS} element={<PantallaPos />} />
-          <Route
-            path={ROUTES.VENTAS_TURNO}
-            element={<PantallaVentasTurnoActual />}
-          />
-          <Route
-            path={ROUTES.VENTA_INDIVIDUAL}
-            element={<PantallaVentaIndividual />}
-          />
-          <Route
-            path="/resultado-cierre"
-            element={<PantallaResultadoCierreTurno />}
-          />
-          <Route
-            path={ROUTES.CAMBIO_CONTRASENA}
-            element={<PantallaCambioContraseñaCajero />}
-          />
+          <Route path={ROUTES.VENTAS_TURNO} element={<PantallaVentasTurnoActual />} />
+          <Route path={ROUTES.VENTA_INDIVIDUAL} element={<PantallaVentaIndividual />} />
+          <Route path={ROUTES.RESULTADO_CIERRE} element={<PantallaResultadoCierreTurno />} />
+          <Route path={ROUTES.CAMBIO_CONTRASENA} element={<PantallaCambioContraseñaCajero />} />
+          <Route path={ROUTES.DETALLE_VENTA} element={<PantallaDetalleVenta />} />
+          <Route path={ROUTES.COMPROBANTE} element={<PantallaComprobante />} />
+
+
         </Route>
 
         {/* Catch-all */}
