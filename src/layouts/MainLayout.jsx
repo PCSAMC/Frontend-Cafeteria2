@@ -6,6 +6,7 @@ import {
   ShoppingCart, Package, Tag, ArrowLeftRight,
   History, ClipboardList, ShieldAlert, ListOrdered,
   UserCircle, KeyRound,
+  User,
 } from "lucide-react";
 import { ROUTES } from "@/utils/constants";
 import { useTheme } from "@/providers/ThemeProvider";
@@ -66,6 +67,18 @@ export const MainLayout = ({ rol = "admin" }) => {
   const { theme, setTheme } = useTheme();
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  let nombreUsuario = "Usuario";
+  try {
+    const userDataString = localStorage.getItem("userData");
+    if (userDataString) {
+      const userData = JSON.parse(userDataString);
+      // Buscamos fullName, pero por si acaso dejamos opciones de fallback
+      nombreUsuario = userData.fullName || userData.fullname || userData.nombre || "Usuario";
+    }
+  } catch (error) {
+    console.error("Error parseando userData de localStorage", error);
+  }
 
   const links    = SIDEBAR_LINKS[rol] ?? SIDEBAR_LINKS.admin;
   const rolMeta  = ROL_META[rol]      ?? ROL_META.admin;
@@ -172,6 +185,7 @@ export const MainLayout = ({ rol = "admin" }) => {
           <div className="mx-4 h-px bg-white/5 shrink-0" />
 
           {/* Avatar de usuario */}
+          {/* Avatar de usuario */}
           <div className="p-4 shrink-0 min-w-max">
             <div className="flex items-center gap-3 px-1">
               <Avatar className="w-8 h-8 border border-white/10 shrink-0">
@@ -181,8 +195,9 @@ export const MainLayout = ({ rol = "admin" }) => {
                 </AvatarFallback>
               </Avatar>
               <div className="flex flex-col min-w-0">
+                {/* 👇 AQUÍ USAMOS LA VARIABLE nombreUsuario 👇 */}
                 <span className="text-sm font-semibold text-white truncate">
-                  {rolMeta.badge}
+                  {nombreUsuario}
                 </span>
                 <span className="text-[10px] text-sidebar-foreground/40 truncate">
                   {rolMeta.label}

@@ -1,63 +1,38 @@
 import { useEffect, useMemo, useState } from "react";
 import { X, Search, Save, AlertTriangle } from "lucide-react";
+import { Product } from "@/features/products/dto/product.dto"; // Ajusta la ruta según tu proyecto
+import React from "react";
 
-const productosConsulta = [
-  {
-    id: 1,
-    nombre: "Café americano",
-    categoria: "Bebidas",
-    stock: 38,
-    stockMinimo: 10,
-    estado: "Activo",
-  },
-  {
-    id: 2,
-    nombre: "Capuccino",
-    categoria: "Bebidas",
-    stock: 31,
-    stockMinimo: 8,
-    estado: "Activo",
-  },
-  {
-    id: 7,
-    nombre: "Croissant",
-    categoria: "Panadería",
-    stock: 4,
-    stockMinimo: 6,
-    estado: "Activo",
-  },
-  {
-    id: 9,
-    nombre: "Café molido",
-    categoria: "Insumos",
-    stock: 2,
-    stockMinimo: 5,
-    estado: "Inactivo",
-  },
-  {
-    id: 10,
-    nombre: "Leche entera",
-    categoria: "Insumos",
-    stock: 5,
-    stockMinimo: 8,
-    estado: "Inactivo",
-  },
-];
-
-const obtenerEstadoStock = (stock, minimo) => {
-  if (stock <= 0 || stock < 3) return "Crítico";
-  if (stock <= minimo) return "Bajo";
+// Mantenemos la lógica de estado intacta
+const obtenerEstadoStock = (stockActual: number, stockMinimo: number) => {
+  if (stockActual <= 0 || stockActual < 3) return "Crítico";
+  if (stockActual <= stockMinimo) return "Bajo";
   return "OK";
 };
 
-const obtenerClaseEstado = (estado) => {
+const obtenerClaseEstado = (estado: string) => {
   if (estado === "Crítico") return "bg-destructive/10 text-destructive";
-  if (estado === "Bajo")
-    return "bg-amber-500/10 text-amber-700 dark:text-amber-300";
+  if (estado === "Bajo") return "bg-amber-500/10 text-amber-700 dark:text-amber-300";
   return "bg-primary/10 text-primary";
 };
 
-export const ModalConsultarStock = ({ open, onClose, producto, onSave }) => {
+// Ampliamos los tipos con 'any' temporalmente para que TypeScript no bloquee 
+// al recibir las propiedades en español (si tu DTO las tiene en inglés)
+interface ModalConsultarStockProps {
+  open: boolean;
+  onClose: () => void;
+  producto?: Product | any;
+  productos?: Product[] | any[];
+  onSave?: (data: { productId: number; movementTypeId: number; quantity: number; reason: string }) => void;
+}
+
+export const ModalConsultarStock = ({ 
+  open, 
+  onClose, 
+  producto, 
+  productos = [], 
+  onSave 
+}: ModalConsultarStockProps) => {
   const [busqueda, setBusqueda] = useState("");
   const [tipoMovimiento, setTipoMovimiento] = useState("Ingreso");
   const [cantidad, setCantidad] = useState("");
@@ -72,6 +47,7 @@ export const ModalConsultarStock = ({ open, onClose, producto, onSave }) => {
     }
   }, [open, producto]);
 
+  // Usamos 'stock' en lugar de 'currentStock'
   const stockAntes = Number(producto?.stock ?? 0);
   const cantidadNumerica = Number(cantidad || 0);
 
@@ -79,27 +55,45 @@ export const ModalConsultarStock = ({ open, onClose, producto, onSave }) => {
     if (!producto) return 0;
     if (tipoMovimiento === "Ingreso") return cantidadNumerica;
     if (tipoMovimiento === "Merma") return -cantidadNumerica;
-    return cantidadNumerica - stockAntes;
+    return cantidadNumerica - stockAntes; // Caso "Ajuste manual"
   }, [producto, tipoMovimiento, cantidadNumerica, stockAntes]);
 
   const stockDespues = Math.max(0, stockAntes + movimientoCalculado);
 
-  const productosFiltrados = productosConsulta.filter((item) =>
-    `${item.nombre} ${item.categoria} ${item.estado}`
+  // Filtramos usando 'nombre', 'categoria' y 'stock'
+  const productosFiltrados = productos.filter((item) => {
+    const estado = obtenerEstadoStock(item.stock, item.stockMinimo);
+    return `${item.nombre} ${item.categoria || ""} ${estado}`
       .toLowerCase()
-      .includes(busqueda.toLowerCase()),
-  );
+      .includes(busqueda.toLowerCase());
+  });
 
   if (!open) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!producto) return;
     if (cantidadNumerica < 0) return;
     if (tipoMovimiento === "Merma" && cantidadNumerica > stockAntes) return;
 
-    onSave?.({ ...producto, stock: stockDespues });
-    onClose();
+    const getMovementTypeId = (tipo: string) => {
+      if (tipo === "Ingreso") return 1;
+      if (tipo === "Merma") return 3;
+      return 2; // Ajuste manual
+    };
+
+    const quantityToSend = tipoMovimiento === "A Ajuste manual" // Aseguramos que la lógica de tu string coincida (Ajuste manual)
+      ? movimientoCalculado
+      : tipoMovimiento === "Merma"
+        ? -Math.abs(cantidadNumerica)
+        : Math.abs(cantidadNumerica);
+
+    onSave?.({
+      productId: Number(producto.id),
+      movementTypeId: getMovementTypeId(tipoMovimiento),
+      quantity: quantityToSend,
+      reason: motivo || tipoMovimiento,
+    });
   };
 
   return (
@@ -108,11 +102,11 @@ export const ModalConsultarStock = ({ open, onClose, producto, onSave }) => {
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <h2 className="text-xl font-semibold">
+              {/* Leemos producto.nombre */}
               {producto ? `Stock de ${producto.nombre}` : "Consulta de stock"}
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Consulta niveles de stock y registra reposiciones, ajustes o
-              mermas.
+              Consulta niveles de stock y registra reposiciones, ajustes o mermas.
             </p>
           </div>
           <button
@@ -129,9 +123,11 @@ export const ModalConsultarStock = ({ open, onClose, producto, onSave }) => {
             <div className="grid gap-4 md:grid-cols-3">
               <div className="rounded-2xl border border-border bg-background p-4">
                 <p className="text-xs text-muted-foreground">Producto</p>
+                {/* Leemos producto.nombre */}
                 <p className="mt-1 font-semibold">{producto.nombre}</p>
                 <p className="text-xs text-muted-foreground">
-                  {producto.categoria}
+                  {/* Leemos producto.categoria */}
+                  {producto.categoria || "Sin categoría"}
                 </p>
               </div>
               <div className="rounded-2xl border border-border bg-background p-4">
@@ -141,17 +137,18 @@ export const ModalConsultarStock = ({ open, onClose, producto, onSave }) => {
               <div className="rounded-2xl border border-border bg-background p-4">
                 <p className="text-xs text-muted-foreground">Stock mínimo</p>
                 <p className="mt-1 text-2xl font-bold">
+                  {/* Leemos producto.stockMinimo */}
                   {producto.stockMinimo}
                 </p>
               </div>
             </div>
 
+            {/* Validamos con producto.stockMinimo */}
             {stockAntes <= producto.stockMinimo && (
               <div className="flex items-start gap-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-300">
                 <AlertTriangle size={18} className="mt-0.5" />
                 <p>
-                  Este producto está en nivel bajo/crítico. Se recomienda
-                  registrar un ingreso de mercadería.
+                  Este producto está en nivel bajo/crítico. Se recomienda registrar un ingreso de mercadería.
                 </p>
               </div>
             )}
@@ -171,9 +168,7 @@ export const ModalConsultarStock = ({ open, onClose, producto, onSave }) => {
               </label>
               <label className="space-y-1">
                 <span className="text-sm font-medium">
-                  {tipoMovimiento === "Ajuste manual"
-                    ? "Nuevo stock total"
-                    : "Cantidad"}
+                  {tipoMovimiento === "Ajuste manual" ? "Nuevo stock total" : "Cantidad"}
                 </span>
                 <input
                   type="number"
@@ -205,9 +200,7 @@ export const ModalConsultarStock = ({ open, onClose, producto, onSave }) => {
                 <p
                   className={`text-xl font-bold ${movimientoCalculado >= 0 ? "text-primary" : "text-destructive"}`}
                 >
-                  {movimientoCalculado >= 0
-                    ? `+${movimientoCalculado}`
-                    : movimientoCalculado}
+                  {movimientoCalculado >= 0 ? `+${movimientoCalculado}` : movimientoCalculado}
                 </p>
               </div>
               <div>
@@ -264,17 +257,13 @@ export const ModalConsultarStock = ({ open, onClose, producto, onSave }) => {
                 </thead>
                 <tbody>
                   {productosFiltrados.map((item) => {
-                    const estado = obtenerEstadoStock(
-                      item.stock,
-                      item.stockMinimo,
-                    );
+                    // Usamos item.stock y item.stockMinimo
+                    const estado = obtenerEstadoStock(item.stock, item.stockMinimo);
                     return (
-                      <tr
-                        key={item.id}
-                        className="border-b border-border last:border-none"
-                      >
+                      <tr key={item.id} className="border-b border-border last:border-none">
+                        {/* Leemos item.nombre, item.categoria e item.stock */}
                         <td className="px-3 py-3 font-medium">{item.nombre}</td>
-                        <td className="px-3 py-3">{item.categoria}</td>
+                        <td className="px-3 py-3">{item.categoria || "N/A"}</td>
                         <td className="px-3 py-3">{item.stock}</td>
                         <td className="px-3 py-3">
                           <span

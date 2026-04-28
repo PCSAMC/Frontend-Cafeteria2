@@ -1,6 +1,7 @@
+/* eslint-disable react-hooks/rules-of-hooks */
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   User,
   Clock,
@@ -17,27 +18,59 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 
-import { ModalConsultarStock } from "@/features/products/components/ModalConsultarStock";
+import { ModalStock } from "./ModalStock";
 import { CloseShiftModal } from "@/features/shifts/components/ModalCierreTurno";
 import { ROUTES } from "@/utils/constants";
+import { useShiftContext } from "@/features/shifts/contexts/shiftContext";
+import { useProducts } from "@/features/products/hooks/useProducts"; 
 
 export const ShiftInfo = () => {
   const [stockModalOpen, setStockModalOpen] = useState(false);
   const [closeShiftModalOpen, setCloseShiftModalOpen] = useState(false);
 
-  // Simulación de datos del turno
-  const shiftData = {
-    cashier: "Juan Pérez",
-    startTime: "08:30 AM",
-    currentSales: 1250.5,
-    transactionCount: 15,
-  };
+  const { products, getAllProducts } = useProducts();
+
+  const { currentShift } = useShiftContext();
 
   const handleCloseSession = () => {
     if (confirm("¿Estás seguro de cerrar sesión?")) {
       window.location.href = "/login";
     }
   };
+
+  useEffect(() => {
+    if (stockModalOpen) {
+      getAllProducts();
+    }
+  }, [stockModalOpen, getAllProducts]);
+
+  const [cashierName, setCashierName] = useState("Cajero en turno");
+  
+  useEffect(() => {
+    const userDataString = localStorage.getItem("userData");
+    if (userDataString) {
+      try {
+        const userData = JSON.parse(userDataString);
+        // eslint-disable-next-line no-undef, react-hooks/set-state-in-effect
+        setCashierName(userData.username || userData.name || "Cajero en turno");
+      } catch (error) {
+        console.error("Error al leer los datos del usuario:", error);
+      }
+    }
+  }, []);   
+
+  // Prevenimos error si por alguna razón renderiza sin turno
+  if (!currentShift) return null;
+
+  // Formateamos la fecha y hora reales del backend
+  const startTime = new Date(currentShift.openedAt).toLocaleTimeString('es-BO', {
+    hour: '2-digit', minute: '2-digit'
+  });
+  
+  // Por ahora mostramos el fondo inicial. Si luego la API te devuelve las ventas totales del turno, lo cambias aquí.
+  const currentSalesDisplay = Number(currentShift.initialFund); 
+
+
 
   return (
     <Card className="flex h-full flex-col border-none rounded-none bg-card shadow-none overflow-hidden">
@@ -65,28 +98,25 @@ export const ShiftInfo = () => {
         </div>
       </CardHeader>
 
-      {/* PATRÓN DE SCROLL MEMORIZADO: Mismo enfoque que el ProductCatalog */}
+      {/* ÁREA DE SCROLL */}
       <div className="flex-1 overflow-y-auto px-5 pt-5 pb-6 bg-muted/10"> 
         <div className="space-y-6">
           
-          {/* TARJETA DE INGRESOS */}
+          {/* TARJETA DE INGRESOS / FONDO */}
           <div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-primary/5 p-4 transition-all hover:border-primary/40">
             <div className="flex flex-col gap-1 relative z-10">
               <div className="flex items-center gap-2 mb-1">
                 <Badge variant="outline" className="bg-card text-primary border-primary/20 text-[9px] font-black uppercase tracking-wider px-2 py-0.5">
-                  Ingresos Totales
+                  Fondo Inicial
                 </Badge>
                 <TrendingUp className="h-3.5 w-3.5 text-primary" />
               </div>
               <div className="flex items-baseline gap-1 mt-1">
                 <span className="text-xs font-bold text-muted-foreground uppercase">Bs</span>
                 <span className="text-4xl font-black tracking-tighter text-foreground leading-none">
-                  {shiftData.currentSales.toLocaleString('es-BO', { minimumFractionDigits: 2 })}
+                  {currentSalesDisplay.toLocaleString('es-BO', { minimumFractionDigits: 2 })}
                 </span>
               </div>
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-2">
-                {shiftData.transactionCount} Transacciones hoy
-              </p>
             </div>
           </div>
 
@@ -103,7 +133,7 @@ export const ShiftInfo = () => {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">Responsable</p>
-                  <p className="text-xs font-black text-foreground truncate uppercase">{shiftData.cashier}</p>
+                  <p className="text-xs font-black text-foreground truncate uppercase">{cashierName}</p>
                 </div>
                 <ShieldCheck className="h-4 w-4 text-green-500/70 mr-1" />
               </div>
@@ -114,7 +144,7 @@ export const ShiftInfo = () => {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">Apertura de caja</p>
-                  <p className="text-xs font-black text-foreground">{shiftData.startTime}</p>
+                  <p className="text-xs font-black text-foreground">{startTime}</p>
                 </div>
               </div>
             </div>
@@ -143,7 +173,7 @@ export const ShiftInfo = () => {
               <Button
                 variant="outline"
                 className="group h-auto flex-col items-center justify-center gap-2 rounded-2xl border-border/40 bg-card p-4 transition-all hover:border-chart-2/40 hover:bg-chart-2/5 hover:shadow-md"
-                onClick={() => (window.location.href = ROUTES.VENTAS_TURNO)}
+                onClick={() => (window.location.href = ROUTES.VENTAS_TURNO || '/ventas')}
               >
                 <div className="rounded-full bg-chart-2/10 p-2.5 transition-transform group-hover:scale-110">
                   <Receipt className="h-5 w-5 text-chart-2" />
@@ -158,7 +188,7 @@ export const ShiftInfo = () => {
         </div>
       </div>
 
-      {/* FOOTER: Acciones críticas fijadas al fondo */}
+      {/* FOOTER */}
       <CardFooter className="flex-col gap-3 p-5 border-t border-border/40 bg-card flex-shrink-0">
         <Button
           onClick={() => setCloseShiftModalOpen(true)}
@@ -181,15 +211,16 @@ export const ShiftInfo = () => {
         </Button>
       </CardFooter>
 
-      {/* MODALES */}
-      <ModalConsultarStock
+      {/* MODALES ACTUALIZADOS */}
+      <ModalStock
         open={stockModalOpen}
         onClose={() => setStockModalOpen(false)}
+        productos={products || []} // Pasamos los productos del hook
       />
       <CloseShiftModal
         open={closeShiftModalOpen}
         onClose={() => setCloseShiftModalOpen(false)}
-        totals={{ cash: shiftData.currentSales, initialFund: 500 }}
+        totals={{ cash: currentSalesDisplay, initialFund: Number(currentShift.initialFund) }}
       />
     </Card>
   );

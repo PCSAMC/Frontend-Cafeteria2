@@ -1,25 +1,40 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   CreditCard,
   Banknote,
   Smartphone,
   ArrowLeftRight,
   CheckCircle2,
+  Loader2,
 } from "lucide-react";
+import { toast } from "sonner";
+import { usePos } from "../hooks/usePos";
 
 export const ProcessPaymentModal = ({
   open,
   onClose,
   order,
   total,
+  shiftId,
+  onSuccess,
+  onOpenReceipt,
 }) => {
+  const { paymentMethods, orders } = usePos();
+
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [cashReceived, setCashReceived] = useState("");
   const [cashAmount, setCashAmount] = useState("");
   const [cardAmount, setCardAmount] = useState("");
   const [transferAmount, setTransferAmount] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  useEffect(() => {
+    if (open && (!paymentMethods.data || paymentMethods.data.length === 0)) {
+      paymentMethods.fetch();
+    }
+  }, [open, paymentMethods]);
 
   if (!open) return null;
 
@@ -36,30 +51,148 @@ export const ProcessPaymentModal = ({
     const card = parseFloat(cardAmount) || 0;
     const transfer = parseFloat(transferAmount) || 0;
     const sum = cash + card + transfer;
-    return { sum, isValid: sum === total, difference: total - sum };
+    return { sum, isValid: Math.abs(sum - total) < 0.01, difference: total - sum };
   };
 
-  const handleConfirmPayment = () => {
-    if (paymentMethod === "cash" && parseFloat(cashReceived) < total) {
-      alert("El monto recibido es menor al total");
+const handleConfirmPayment = async () => {
+    // 1. Validaciones iniciales de interfaz
+    if (paymentMethod === "cash" && (parseFloat(cashReceived) || 0) < total) {
+      toast.error("El monto recibido es menor al total");
       return;
     }
 
     if (paymentMethod === "mixed" && !validateMixedPayment().isValid) {
-      alert("La suma de los montos debe ser igual al total");
+      toast.error("La suma de los montos debe ser igual al total");
       return;
     }
 
-    // TODO: Procesar venta y generar comprobante
-    console.log("Procesando venta:", {
-      order,
-      total,
-      paymentMethod,
-      cashReceived,
-    });
+    setIsProcessing(true);
 
-    // Redirigir a comprobante
-    window.location.href = `/pos/receipt/12345`;
+    try {
+      // 2. Obtener IDs de métodos de pago desde los datos de la BD
+      const getMethodId = (keyword) => {
+        const method = paymentMethods.data?.find((m) =>
+          m.name.toLowerCase().includes(keyword.toLowerCase())
+        );
+        return method ? method.id : null;
+      };
+
+      const cashId = getMethodId("efectivo") || 1;
+      const cardId = getMethodId("tarjeta") || 2;
+      const transferId = getMethodId("transfer") || 3;
+
+      // 3. Preparar el array de pagos según lo que pide el servidor
+      // Cada objeto dentro del array lleva amount (lo que se cobra) y amountTendered (lo recibido)
+      let paymentsArray = [];
+
+      if (paymentMethod === "cash") {
+        paymentsArray.push({
+          paymentMethodId: cashId,
+          amount: total,
+          amountTendered: parseFloat(cashReceived),
+        });
+      } else if (paymentMethod === "card") {
+        paymentsArray.push({
+          paymentMethodId: cardId,
+          amount: total,
+          amountTendered: total,
+        });
+      } else if (paymentMethod === "transfer") {
+        paymentsArray.push({
+          paymentMethodId: transferId,
+          amount: total,
+          amountTendered: total,
+        });
+      } else if (paymentMethod === "mixed") {
+        if (parseFloat(cashAmount) > 0) {
+          paymentsArray.push({
+            paymentMethodId: cashId,
+            amount: parseFloat(cashAmount),
+            amountTendered: parseFloat(cashAmount),
+          });
+        }
+        if (parseFloat(cardAmount) > 0) {
+          paymentsArray.push({
+            paymentMethodId: cardId,
+            amount: parseFloat(cardAmount),
+            amountTendered: parseFloat(cardAmount),
+          });
+        }
+        if (parseFloat(transferAmount) > 0) {
+          paymentsArray.push({
+            paymentMethodId: transferId,
+            amount: parseFloat(transferAmount),
+            amountTendered: parseFloat(transferAmount),
+          });
+        }
+      }
+
+      let orderId = order.id;
+
+      // 4. Si es una venta rápida (sin orden previa), la creamos primero
+      if (!orderId) {
+        const newOrder = await orders.create({ shiftRecordId: shiftId });
+        orderId = newOrder?.data?.id || newOrder?.id;
+
+        if (!orderId) throw new Error("No se pudo generar el ID de la orden");
+
+        // Subimos los productos al servidor
+        await Promise.all(
+          order.map((item) =>
+            orders.items.add(orderId, {
+              productId: item.id,
+              quantity: item.cantidad,
+            })
+          )
+        );
+      }
+
+      // 5. LLAMADA FINAL AL SERVIDOR (Cerrar y Pagar)
+      // Enviamos el objeto con la propiedad 'payments' que contiene el array
+      // Esto resuelve el error: "payments must be an array"
+    // ... (arriba queda igual)
+
+      // 5. LLAMADA FINAL AL SERVIDOR (Cerrar y Pagar)
+      // ¡AQUÍ GUARDAMOS LA RESPUESTA EN UNA VARIABLE!
+      const paymentResponse = await orders.pay(orderId, { 
+        payments: paymentsArray 
+      });
+
+      // 6. Éxito y Limpieza de estados
+      toast.success("Venta completada exitosamente");
+      
+      setCashReceived("");
+      setCashAmount("");
+      setCardAmount("");
+      setTransferAmount("");
+
+      // ¡AQUÍ LE PASAMOS LA RESPUESTA AL PADRE!
+      if (onSuccess) {
+        // Extraemos los datos útiles de la respuesta (depende de cómo responda tu API)
+        // Por lo general viene en paymentResponse.data o directamente en paymentResponse
+        const saleData = paymentResponse?.data || paymentResponse;
+        onSuccess(saleData); 
+      }
+      
+      if (onClose) onClose(); 
+      
+      // Abrir recibo de forma segura
+      if (onOpenReceipt && typeof onOpenReceipt === 'function') {
+        onOpenReceipt(orderId);
+      }
+
+    } catch (error) {
+      console.error("Error detallado en la venta:", error.response?.data || error);
+// ... (abajo queda igual)
+      
+      // Extraer mensaje de error del servidor si existe
+      const serverMessage = error.response?.data?.message;
+      const finalMsg = Array.isArray(serverMessage) ? serverMessage[0] : serverMessage;
+      
+      toast.error(finalMsg || "No se pudo procesar el pago. Revisa la consola.");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const mixedValidation = validateMixedPayment();
@@ -70,317 +203,109 @@ export const ProcessPaymentModal = ({
         {/* Header */}
         <div className="border-b border-border px-6 py-4">
           <h2 className="text-xl font-semibold text-foreground">
-            Procesar Cobro
+            {order.id ? `Cobrar Orden #${order.id}` : "Procesar Cobro"}
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Selecciona el método de pago y confirma la transacción
+            {order.id ? "Finalizando una orden pendiente" : "Selecciona el método de pago"}
           </p>
         </div>
 
         <div className="max-h-[70vh] overflow-y-auto px-6 py-5">
-          {/* Resumen de la venta */}
+          {/* Resumen */}
           <div className="mb-6 rounded-xl border border-border bg-background p-4">
             <div className="mb-3 flex items-center justify-between border-b border-border pb-3">
-              <span className="text-sm font-medium text-foreground">
-                Resumen de productos
-              </span>
-              <span className="text-sm text-muted-foreground">
-                {order.length} {order.length === 1 ? "item" : "items"}
-              </span>
+              <span className="text-sm font-medium text-foreground">Detalle del carrito</span>
+              <span className="text-sm text-muted-foreground">{order.length} productos</span>
             </div>
             <div className="space-y-2">
               {order.slice(0, 3).map((item) => (
                 <div key={item.id} className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">
-                    {item.cantidad}x {item.nombre}
-                  </span>
-                  <span className="font-medium text-foreground">
-                    Bs. {(item.precio * item.cantidad).toFixed(2)}
-                  </span>
+                  <span className="text-muted-foreground">{item.cantidad}x {item.nombre}</span>
+                  <span className="font-medium text-foreground">Bs. {(item.precio * item.cantidad).toFixed(2)}</span>
                 </div>
               ))}
-              {order.length > 3 && (
-                <p className="text-xs text-muted-foreground">
-                  + {order.length - 3} productos más
-                </p>
-              )}
+              {order.length > 3 && <p className="text-xs text-muted-foreground">+ {order.length - 3} más</p>}
             </div>
             <div className="mt-4 flex justify-between border-t border-border pt-3">
-              <span className="text-lg font-semibold text-foreground">
-                TOTAL A COBRAR
-              </span>
-              <span className="text-2xl font-bold text-primary">
-                Bs. {total.toFixed(2)}
-              </span>
+              <span className="text-lg font-semibold">TOTAL</span>
+              <span className="text-2xl font-bold text-primary">Bs. {total.toFixed(2)}</span>
             </div>
           </div>
 
-          {/* Métodos de pago */}
+          {/* Botones de Métodos (Igual a tu código) */}
           <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-foreground">
-              Método de Pago
-            </h3>
+             <div className="grid grid-cols-2 gap-3">
+                <button 
+                  onClick={() => setPaymentMethod("cash")} 
+                  className={`flex items-center gap-3 rounded-xl border p-4 ${paymentMethod === "cash" ? "border-primary bg-primary/10" : "bg-background"}`}>
+                  <Banknote className={paymentMethod === "cash" ? "text-primary" : ""} />
+                  <span>Efectivo</span>
+                </button>
+                <button 
+                  onClick={() => setPaymentMethod("card")} 
+                  className={`flex items-center gap-3 rounded-xl border p-4 ${paymentMethod === "card" ? "border-primary bg-primary/10" : "bg-background"}`}>
+                  <CreditCard className={paymentMethod === "card" ? "text-primary" : ""} />
+                  <span>Tarjeta</span>
+                </button>
+                <button 
+                  onClick={() => setPaymentMethod("transfer")} 
+                  className={`flex items-center gap-3 rounded-xl border p-4 ${paymentMethod === "transfer" ? "border-primary bg-primary/10" : "bg-background"}`}>
+                  <Smartphone className={paymentMethod === "transfer" ? "text-primary" : ""} />
+                  <span>Transferencia</span>
+                </button>
+                <button 
+                  onClick={() => setPaymentMethod("mixed")} 
+                  className={`flex items-center gap-3 rounded-xl border p-4 ${paymentMethod === "mixed" ? "border-primary bg-primary/10" : "bg-background"}`}>
+                  <ArrowLeftRight className={paymentMethod === "mixed" ? "text-primary" : ""} />
+                  <span>Mixto</span>
+                </button>
+             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => setPaymentMethod("cash")}
-                className={`flex items-center gap-3 rounded-xl border p-4 transition-colors ${
-                  paymentMethod === "cash"
-                    ? "border-primary bg-primary/10"
-                    : "border-border bg-background hover:bg-accent"
-                }`}
-              >
-                <Banknote
-                  className={`h-6 w-6 ${paymentMethod === "cash" ? "text-primary" : "text-muted-foreground"}`}
-                />
-                <div className="text-left">
-                  <p
-                    className={`text-sm font-semibold ${paymentMethod === "cash" ? "text-primary" : "text-foreground"}`}
-                  >
-                    Efectivo
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Pago en billetes/monedas
-                  </p>
-                </div>
-              </button>
-
-              <button
-                onClick={() => setPaymentMethod("card")}
-                className={`flex items-center gap-3 rounded-xl border p-4 transition-colors ${
-                  paymentMethod === "card"
-                    ? "border-primary bg-primary/10"
-                    : "border-border bg-background hover:bg-accent"
-                }`}
-              >
-                <CreditCard
-                  className={`h-6 w-6 ${paymentMethod === "card" ? "text-primary" : "text-muted-foreground"}`}
-                />
-                <div className="text-left">
-                  <p
-                    className={`text-sm font-semibold ${paymentMethod === "card" ? "text-primary" : "text-foreground"}`}
-                  >
-                    Tarjeta
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Débito o crédito
-                  </p>
-                </div>
-              </button>
-
-              <button
-                onClick={() => setPaymentMethod("transfer")}
-                className={`flex items-center gap-3 rounded-xl border p-4 transition-colors ${
-                  paymentMethod === "transfer"
-                    ? "border-primary bg-primary/10"
-                    : "border-border bg-background hover:bg-accent"
-                }`}
-              >
-                <Smartphone
-                  className={`h-6 w-6 ${paymentMethod === "transfer" ? "text-primary" : "text-muted-foreground"}`}
-                />
-                <div className="text-left">
-                  <p
-                    className={`text-sm font-semibold ${paymentMethod === "transfer" ? "text-primary" : "text-foreground"}`}
-                  >
-                    Transferencia
-                  </p>
-                  <p className="text-xs text-muted-foreground">QR / Banca móvil</p>
-                </div>
-              </button>
-
-              <button
-                onClick={() => setPaymentMethod("mixed")}
-                className={`flex items-center gap-3 rounded-xl border p-4 transition-colors ${
-                  paymentMethod === "mixed"
-                    ? "border-primary bg-primary/10"
-                    : "border-border bg-background hover:bg-accent"
-                }`}
-              >
-                <ArrowLeftRight
-                  className={`h-6 w-6 ${paymentMethod === "mixed" ? "text-primary" : "text-muted-foreground"}`}
-                />
-                <div className="text-left">
-                  <p
-                    className={`text-sm font-semibold ${paymentMethod === "mixed" ? "text-primary" : "text-foreground"}`}
-                  >
-                    Pago Mixto
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Varios métodos
-                  </p>
-                </div>
-              </button>
-            </div>
-
-            {/* Campos según método */}
-            <div className="mt-6 space-y-4">
-              {paymentMethod === "cash" && (
-                <>
+             {/* Inputs dinámicos */}
+             <div className="mt-4">
+                {paymentMethod === "cash" && (
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground">
-                      Monto recibido
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                        Bs.
-                      </span>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={cashReceived}
-                        onChange={(e) => setCashReceived(e.target.value)}
-                        placeholder="0.00"
-                        className="w-full rounded-xl border border-border bg-background py-3 pl-12 pr-4 text-lg font-semibold outline-none focus:ring-2 focus:ring-primary/20"
-                      />
-                    </div>
-                  </div>
-
-                  {cashReceived && parseFloat(cashReceived) >= total && (
-                    <div className="rounded-xl bg-primary/10 p-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-foreground">
-                          Vuelto
-                        </span>
-                        <span className="text-2xl font-bold text-primary">
-                          Bs. {calculateChange().toFixed(2)}
-                        </span>
+                    <label className="text-sm">Monto Recibido</label>
+                    <input 
+                      type="number" 
+                      value={cashReceived} 
+                      onChange={(e) => setCashReceived(e.target.value)}
+                      className="w-full p-3 rounded-lg border bg-background text-xl font-bold"
+                      placeholder="0.00"
+                    />
+                    {parseFloat(cashReceived) >= total && (
+                      <div className="p-3 bg-green-500/10 text-green-500 rounded-lg flex justify-between">
+                        <span>Cambio:</span>
+                        <span className="font-bold">Bs. {calculateChange().toFixed(2)}</span>
                       </div>
-                    </div>
-                  )}
-                </>
-              )}
-
-              {paymentMethod === "card" && (
-                <div className="rounded-xl border border-border bg-primary/10 p-4">
-                  <div className="flex items-center gap-3">
-                    <CheckCircle2 className="h-5 w-5 text-primary" />
-                    <p className="text-sm text-foreground">
-                      Procesando pago con tarjeta... (Simulación)
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {paymentMethod === "transfer" && (
-                <div className="rounded-xl border border-border bg-primary/10 p-4">
-                  <div className="flex items-center gap-3">
-                    <CheckCircle2 className="h-5 w-5 text-primary" />
-                    <p className="text-sm text-foreground">
-                      Esperando confirmación de transferencia... (Simulación)
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {paymentMethod === "mixed" && (
-                <div className="space-y-3">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground">
-                      Monto en efectivo
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                        Bs.
-                      </span>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={cashAmount}
-                        onChange={(e) => setCashAmount(e.target.value)}
-                        placeholder="0.00"
-                        className="w-full rounded-xl border border-border bg-background py-2.5 pl-12 pr-4 outline-none focus:ring-2 focus:ring-primary/20"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground">
-                      Monto con tarjeta
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                        Bs.
-                      </span>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={cardAmount}
-                        onChange={(e) => setCardAmount(e.target.value)}
-                        placeholder="0.00"
-                        className="w-full rounded-xl border border-border bg-background py-2.5 pl-12 pr-4 outline-none focus:ring-2 focus:ring-primary/20"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground">
-                      Monto por transferencia
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                        Bs.
-                      </span>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={transferAmount}
-                        onChange={(e) => setTransferAmount(e.target.value)}
-                        placeholder="0.00"
-                        className="w-full rounded-xl border border-border bg-background py-2.5 pl-12 pr-4 outline-none focus:ring-2 focus:ring-primary/20"
-                      />
-                    </div>
-                  </div>
-
-                  <div
-                    className={`rounded-xl border p-4 ${
-                      mixedValidation.isValid
-                        ? "border-green-500 bg-green-50 dark:bg-green-950/20"
-                        : "border-yellow-500 bg-yellow-50 dark:bg-yellow-950/20"
-                    }`}
-                  >
-                    <div className="flex justify-between text-sm">
-                      <span className="font-medium text-foreground">
-                        Suma total:
-                      </span>
-                      <span className="font-bold text-foreground">
-                        Bs. {mixedValidation.sum.toFixed(2)}
-                      </span>
-                    </div>
-                    {!mixedValidation.isValid && (
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {mixedValidation.difference > 0
-                          ? `Faltan Bs. ${mixedValidation.difference.toFixed(2)}`
-                          : `Sobran Bs. ${Math.abs(mixedValidation.difference).toFixed(2)}`}
-                      </p>
                     )}
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+                
+                {paymentMethod === "mixed" && (
+                  <div className="space-y-3">
+                    <input type="number" placeholder="Efectivo" value={cashAmount} onChange={(e) => setCashAmount(e.target.value)} className="w-full p-2 border rounded bg-background" />
+                    <input type="number" placeholder="Tarjeta" value={cardAmount} onChange={(e) => setCardAmount(e.target.value)} className="w-full p-2 border rounded bg-background" />
+                    <input type="number" placeholder="Transferencia" value={transferAmount} onChange={(e) => setTransferAmount(e.target.value)} className="w-full p-2 border rounded bg-background" />
+                    <div className={`p-2 rounded text-sm ${mixedValidation.isValid ? 'bg-green-500/10' : 'bg-red-500/10'}`}>
+                      Suma: Bs. {mixedValidation.sum.toFixed(2)} / Faltan: Bs. {mixedValidation.difference.toFixed(2)}
+                    </div>
+                  </div>
+                )}
+             </div>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="border-t border-border px-6 py-4">
-          <div className="flex gap-3">
-            <button
-              onClick={onClose}
-              className="flex-1 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-accent"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={handleConfirmPayment}
-              className="flex-1 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90"
-            >
-              Confirmar Venta
-            </button>
-          </div>
+        <div className="border-t border-border px-6 py-4 flex gap-3">
+          <button onClick={onClose} className="flex-1 p-3 border rounded-xl hover:bg-accent">Cancelar</button>
+          <button 
+            disabled={isProcessing} 
+            onClick={handleConfirmPayment}
+            className="flex-1 p-3 bg-primary text-primary-foreground rounded-xl font-bold flex justify-center items-center"
+          >
+            {isProcessing ? <Loader2 className="animate-spin mr-2" /> : "Confirmar Pago"}
+          </button>
         </div>
       </div>
     </div>

@@ -1,21 +1,20 @@
-"use client";
-
 import { useState } from "react";
-import { AlertCircle, CheckCircle2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 
 export const OpenShiftModal = ({
   open,
   onClose,
   cashierName,
+  onConfirm,
+  isLoading
 }) => {
   const [initialFund, setInitialFund] = useState("");
   const [error, setError] = useState("");
 
   if (!open) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-
     const fund = parseFloat(initialFund);
 
     if (isNaN(fund) || fund <= 0) {
@@ -23,15 +22,14 @@ export const OpenShiftModal = ({
       return;
     }
 
-    // TODO: Validar si ya hay turno activo en esta caja
-    // TODO: Llamar API para crear turno
-
-    console.log("Abriendo turno con fondo:", fund);
     setError("");
-    onClose();
-
-    // Redirigir a POS
-    window.location.href = "/pos";
+    try {
+      // Esperamos a que el componente padre (PantallaPreTurno) haga el trabajo
+      await onConfirm(fund);
+    } catch (err) {
+      // Atrapamos el error de la API y lo mostramos
+      setError(err.response?.data?.message || "Ocurrió un error al abrir el turno");
+    }
   };
 
   return (
@@ -53,7 +51,7 @@ export const OpenShiftModal = ({
           <div className="space-y-3 rounded-xl border border-border bg-background p-4">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Cajero:</span>
-              <span className="font-medium text-foreground">{cashierName}</span>
+              <span className="font-medium text-foreground capitalize">{cashierName}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Fecha:</span>
@@ -84,15 +82,16 @@ export const OpenShiftModal = ({
               <input
                 required
                 type="number"
-                min="0.01"
+                min="0"
                 step="0.01"
+                disabled={isLoading}
                 value={initialFund}
                 onChange={(e) => {
                   setInitialFund(e.target.value);
                   setError("");
                 }}
                 placeholder="0.00"
-                className="w-full rounded-xl border border-border bg-background py-3 pl-12 pr-4 text-lg font-semibold outline-none focus:ring-2 focus:ring-primary/20"
+                className="w-full rounded-xl border border-border bg-background py-3 pl-12 pr-4 text-lg font-semibold outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
               />
             </div>
             {error && (
@@ -117,15 +116,17 @@ export const OpenShiftModal = ({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-accent"
+              disabled={isLoading}
+              className="flex-1 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-accent disabled:opacity-50 transition-colors"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="flex-1 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90"
+              disabled={isLoading}
+              className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-opacity"
             >
-              Confirmar apertura
+              {isLoading ? <Loader2 size={18} className="animate-spin" /> : "Confirmar apertura"}
             </button>
           </div>
         </form>

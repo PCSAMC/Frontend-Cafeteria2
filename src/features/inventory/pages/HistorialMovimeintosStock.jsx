@@ -1,86 +1,97 @@
+/* eslint-disable no-undef */
 import { useEffect, useMemo, useState } from "react";
-import { Download, Filter, Search } from "lucide-react";
-import { stockMovementsService } from "../services/stockMovements.service";
-import { productsService } from "@/features/products/services/products.service";
+import { Download, Filter, Search, Loader2 } from "lucide-react";
+import { useStock } from "../hooks/useStock";
+import { useProducts } from "@/features/products/hooks/useProducts";
+// IMPORTANTE: Importa tu servicio/hook de usuarios aquí cuando lo tengas
+// import { useUsers } from "../hooks/useUsers"; 
 
-const movimientosMock = [
-  {
-    id: 1,
-    fecha: "2026-04-24 14:32",
-    producto: "Café americano",
-    tipo: "Venta",
-    cantidad: -1,
-    stockResultante: 38,
-    usuario: "demo",
-    detalle: "Venta #1084",
-  },
-  {
-    id: 2,
-    fecha: "2026-04-24 10:20",
-    producto: "Café molido",
-    tipo: "shrinkage",
-    cantidad: -3,
-    stockResultante: 2,
-    usuario: "demo",
-    detalle: "Vencimiento",
-  },
-];
+// 1. DICCIONARIO DE TRADUCCIÓN
+const TRADUCCION_TIPOS = {
+  "goods_receipt": "Ingreso",
+  "manual_adjustment": "Ajuste manual",
+  "shrinkage": "Merma",
+  "sale": "Venta",
+  "sale_void": "Venta anulada",
+};
 
 export const HistorialMovimientosStock = () => {
-  const [movimientos, setMovimientos] = useState(movimientosMock);
-  const [productos, setProductos] = useState([]);
-  const [producto, setProducto] = useState("Todos");
-  const [tipo, setTipo] = useState("Todos");
+  const { movements, loadingMovements, getAllMovements } = useStock();
+  const { products, loadingProducts, getAllProducts } = useProducts();
+  
+  // Si tienes un hook de usuarios, lo usarías así:
+  // const { users, getAllUsers } = useUsers();
+  // Por ahora, simulamos una lista de usuarios vacía para que no rompa
+  const users = []; 
+
+  const [productoFiltro, setProductoFiltro] = useState("Todos");
+  const [tipoFiltro, setTipoFiltro] = useState("Todos");
   const [busqueda, setBusqueda] = useState("");
-  const [error, setError] = useState("");
 
-  const cargar = async () => {
-    try {
-      setError("");
-      const [movs, prods] = await Promise.all([
-        stockMovementsService.getAll(),
-        productsService.getAll().catch(() => []),
-      ]);
-      setMovimientos(movs.length ? movs : movimientosMock);
-      setProductos(prods);
-    } catch (err) {
-      setError(
-        "No se pudo cargar historial desde API. Se muestran datos de prueba.",
-      );
-      setMovimientos(movimientosMock);
-    }
-  };
-
+  console.log("Movimientos crudos desde el hook:", movements);
   useEffect(() => {
-    cargar();
-  }, []);
+    getAllMovements({ limit: 100 });
+    getAllProducts({ limit: 100 });
+    // Si tuvieras el hook de usuarios, aquí llamarías:
+    // getAllUsers({ limit: 100 });
+  }, [getAllMovements, getAllProducts]);
 
-  const filtrados = useMemo(
-    () =>
-      movimientos.filter((m) => {
-        const texto = `${m.producto} ${m.tipo} ${m.detalle} ${m.usuario}`
-          .toLowerCase()
-          .includes(busqueda.toLowerCase());
-        const prodOk = producto === "Todos" || m.producto === producto;
-        const tipoOk =
-          tipo === "Todos" ||
-          String(m.tipo).toLowerCase().includes(tipo.toLowerCase());
-        return texto && prodOk && tipoOk;
-      }),
-    [movimientos, busqueda, producto, tipo],
-  );
+  // 2. MAPEO: Traducción de tipos y cruce de datos
+  const movimientosMapeados = useMemo(() => {
+    return movements.map((m) => {
+      // Cruzar Producto
+      const prod = products.find((p) => Number(p.id) === Number(m.productId));
+      
+      // Cruzar Usuario (Busca el ID en la lista de usuarios para sacar el nombre)
+      
+      // Si el backend te enviara el objeto anidado "m.user.name", lo usaríamos. 
+      // Como solo envía "m.userId", usamos el cruce que hicimos arriba.
+
+      // Formatear Fecha
+      const fechaObj = new Date(m.createdAt);
+      const fechaFormateada = !isNaN(fechaObj.getTime())
+        ? fechaObj.toLocaleString("es-BO", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          })
+        : m.createdAt;
+
+      // Traducir el Tipo
+      const tipoOriginal = m.movementType?.name;
+      const tipoTraducido = TRADUCCION_TIPOS[tipoOriginal] || tipoOriginal || "Desconocido";
+
+      return {
+        id: m.id,
+        fecha: fechaFormateada,
+        producto: prod?.name || `Producto ID: ${m.productId}`,
+        tipo: tipoTraducido, // Aquí va ya en Español
+        cantidad: m.quantity,
+        stockResultante: m.stockAfter,
+        usuario: m.user.fullName, // Aquí va el nombre real
+        detalle: m.reason || "Sin detalle",
+      };
+    });
+  }, [movements, products, users]);
+
+  // Filtros locales
+  const filtrados = useMemo(() => {
+    return movimientosMapeados.filter((m) => {
+      const texto = `${m.producto} ${m.tipo} ${m.detalle} ${m.usuario}`
+        .toLowerCase()
+        .includes(busqueda.toLowerCase());
+      const prodOk = productoFiltro === "Todos" || m.producto === productoFiltro;
+      const tipoOk = tipoFiltro === "Todos" || m.tipo === tipoFiltro;
+      
+      return texto && prodOk && tipoOk;
+    });
+  }, [movimientosMapeados, busqueda, productoFiltro, tipoFiltro]);
 
   const exportarCSV = () => {
     const rows = [
-      [
-        "Fecha",
-        "Producto",
-        "Tipo",
-        "Cantidad",
-        "Stock resultante",
-        "Usuario",
-        "Detalle",
-      ],
+      ["Fecha", "Producto", "Tipo", "Cantidad", "Stock resultante", "Usuario", "Detalle"],
       ...filtrados.map((m) => [
         m.fecha,
         m.producto,
@@ -92,11 +103,7 @@ export const HistorialMovimientosStock = () => {
       ]),
     ];
     const csv = rows
-      .map((row) =>
-        row
-          .map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`)
-          .join(","),
-      )
+      .map((row) => row.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(","))
       .join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -107,6 +114,8 @@ export const HistorialMovimientosStock = () => {
     URL.revokeObjectURL(url);
   };
 
+  const isLoading = loadingMovements || loadingProducts;
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="mx-auto max-w-7xl space-y-6">
@@ -116,21 +125,24 @@ export const HistorialMovimientosStock = () => {
               Historial de movimientos de stock
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Consulta de movimientos consumidos desde API.
+              Consulta de movimientos consumidos desde la API.
             </p>
           </div>
           <button
             onClick={exportarCSV}
-            className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90"
+            disabled={filtrados.length === 0}
+            className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
           >
             <Download size={16} /> Exportar CSV
           </button>
         </div>
-        {error && (
-          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
-            {error}
+
+        {isLoading && (
+          <div className="flex items-center gap-2 rounded-xl border border-primary/20 bg-primary/10 px-4 py-3 text-sm text-primary">
+            <Loader2 size={16} className="animate-spin" /> Cargando historial en vivo...
           </div>
         )}
+
         <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
           <div className="mb-5 grid gap-3 md:grid-cols-[1fr_220px_220px]">
             <div className="relative">
@@ -145,32 +157,39 @@ export const HistorialMovimientosStock = () => {
                 className="w-full rounded-xl border border-border bg-background py-2.5 pl-10 pr-3 text-sm outline-none focus:ring-2 focus:ring-primary/20"
               />
             </div>
+            
             <select
-              value={producto}
-              onChange={(e) => setProducto(e.target.value)}
+              value={productoFiltro}
+              onChange={(e) => setProductoFiltro(e.target.value)}
               className="rounded-xl border border-border bg-background px-3 py-2.5 text-sm"
             >
-              <option>Todos</option>
-              {productos.map((p) => (
-                <option key={p.id}>{p.nombre}</option>
+              <option value="Todos">Todos los productos</option>
+              {products.map((p) => (
+                <option key={p.id} value={p.name}>
+                  {p.name}
+                </option>
               ))}
             </select>
+            
+            {/* 3. SELECT DE TIPOS TRADUCIDO */}
             <select
-              value={tipo}
-              onChange={(e) => setTipo(e.target.value)}
+              value={tipoFiltro}
+              onChange={(e) => setTipoFiltro(e.target.value)}
               className="rounded-xl border border-border bg-background px-3 py-2.5 text-sm"
             >
-              <option>Todos</option>
-              <option>goods_receipt</option>
-              <option>manual_adjustment</option>
-              <option>shrinkage</option>
-              <option>sale</option>
-              <option>sale_void</option>
+              <option value="Todos">Todos los tipos</option>
+              <option value="Ingreso">Ingreso</option>
+              <option value="Ajuste manual">Ajuste manual</option>
+              <option value="Merma">Merma</option>
+              <option value="Venta">Venta</option>
+              <option value="Venta anulada">Venta anulada</option>
             </select>
           </div>
+          
           <div className="mb-3 flex items-center gap-2 text-sm text-muted-foreground">
-            <Filter size={16} /> {filtrados.length} registros
+            <Filter size={16} /> {filtrados.length} registros encontrados
           </div>
+          
           <div className="overflow-x-auto">
             <table className="w-full min-w-[900px] text-sm">
               <thead>
@@ -179,34 +198,44 @@ export const HistorialMovimientosStock = () => {
                   <th className="px-3 py-3 text-left">Producto</th>
                   <th className="px-3 py-3 text-left">Tipo</th>
                   <th className="px-3 py-3 text-left">Cantidad</th>
-                  <th className="px-3 py-3 text-left">Stock resultante</th>
+                  <th className="px-3 py-3 text-left">Stock</th>
                   <th className="px-3 py-3 text-left">Usuario</th>
                   <th className="px-3 py-3 text-left">Motivo/Detalle</th>
                 </tr>
               </thead>
               <tbody>
-                {filtrados.map((m) => (
-                  <tr
-                    key={m.id}
-                    className="border-b border-border last:border-none"
-                  >
-                    <td className="px-3 py-4">{m.fecha || "—"}</td>
-                    <td className="px-3 py-4 font-medium">{m.producto}</td>
-                    <td className="px-3 py-4">
-                      <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-                        {m.tipo}
-                      </span>
+                {filtrados.length === 0 && !isLoading ? (
+                  <tr>
+                    <td colSpan="7" className="py-8 text-center text-muted-foreground">
+                      No se encontraron movimientos.
                     </td>
-                    <td
-                      className={`px-3 py-4 font-medium ${Number(m.cantidad) < 0 ? "text-destructive" : "text-primary"}`}
-                    >
-                      {Number(m.cantidad) > 0 ? `+${m.cantidad}` : m.cantidad}
-                    </td>
-                    <td className="px-3 py-4">{m.stockResultante}</td>
-                    <td className="px-3 py-4">{m.usuario}</td>
-                    <td className="px-3 py-4">{m.detalle}</td>
                   </tr>
-                ))}
+                ) : (
+                  filtrados.map((m) => (
+                    <tr
+                      key={m.id}
+                      className="border-b border-border last:border-none"
+                    >
+                      <td className="px-3 py-4">{m.fecha}</td>
+                      <td className="px-3 py-4 font-medium">{m.producto}</td>
+                      <td className="px-3 py-4">
+                        <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                          {m.tipo}
+                        </span>
+                      </td>
+                      <td
+                        className={`px-3 py-4 font-bold ${
+                          Number(m.cantidad) < 0 ? "text-destructive" : "text-primary"
+                        }`}
+                      >
+                        {Number(m.cantidad) > 0 ? `+${m.cantidad}` : m.cantidad}
+                      </td>
+                      <td className="px-3 py-4 font-semibold">{m.stockResultante}</td>
+                      <td className="px-3 py-4 text-muted-foreground">{m.usuario}</td>
+                      <td className="px-3 py-4">{m.detalle}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

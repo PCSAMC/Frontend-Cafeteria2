@@ -1,7 +1,8 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate,Outlet } from "react-router-dom";
 import { ROUTES } from "@/utils/constants";
 import { MainLayout } from "@/layouts/MainLayout";
-
+import { ShiftGuard } from "@/components/guards/ShiftGuard"; // <-- Agrega este import
+import { ShiftProvider } from "@/features/shifts/contexts/shiftContext"; // <-- Agrega este import
 // ════════════════════════════════════════════════════════
 //  AUTH  —  Gemina
 // ════════════════════════════════════════════════════════
@@ -46,10 +47,10 @@ import { HistorialMovimientosStock } from "@/features/inventory/pages/HistorialM
 //  TURNOS  —  Sergio
 // ════════════════════════════════════════════════════════       
 import { PantallaTurnos }                   from "@/features/shifts/pages/PantallaTurnos";
-import { PantallaResultadoCierreTurno }     from "@/features/shifts/pages/PantallaResultadoCierreTurno";
+import {PantallaResultadoCierreTurno }     from "@/features/shifts/pages/PantallaResultadoCierreTurno";
 import { PantallaPreTurno }                 from "@/features/shifts/pages/PantallaPre-turno";
 import { PantallaVentasTurnoActual }        from "@/features/shifts/pages/PantallaVentasTurnoActual";
-
+import { PantallaConfiguracionGlobal } from "@/pages/PantallaConfiguracionGlobal";
 
 // ════════════════════════════════════════════════════════
 //  POS  —  Sergio
@@ -71,136 +72,78 @@ const ProtectedRoute = ({ allowedRoles }) => {
   const token = localStorage.getItem("accessToken");
   const userRole = localStorage.getItem("userRole");
 
-  // Si no hay token, lo mandamos al login
-  if (!token) {
-    return <Navigate to={ROUTES.LOGIN} replace />;
-  }
-
-  // Si el rol del usuario no está en la lista de roles permitidos para esta ruta
+  if (!token) return <Navigate to={ROUTES.LOGIN} replace />;
   if (allowedRoles && !allowedRoles.includes(userRole)) {
     return <Navigate to={ROUTES.NO_AUTORIZADO} replace />;
   }
-
-  // Si todo está bien, renderizamos el Layout correspondiente pasándole el rol
   return <MainLayout rol={userRole} />;
 };
 
-// ════════════════════════════════════════════════════════
-//  RUTAS
-// ════════════════════════════════════════════════════════
 const AppRoutes = () => {
   return (
     <BrowserRouter>
-      <Routes>
-        {/* ════ RUTAS PÚBLICAS ════ */}
-        <Route path="/" element={<Navigate to={ROUTES.LOGIN} replace />} />
-        <Route path={ROUTES.LOGIN} element={<PantallaLogin />} />
-        <Route path={ROUTES.SESION_EXPIRADA} element={<SesionExpirada />} />
-        <Route
-          path={ROUTES.CUENTA_DESACTIVADA}
-          element={<CuentaDesactivada />}
-        />
-        <Route
-          path={ROUTES.NO_AUTORIZADO}
-          element={<PantallaAccesoNoAutorizado />}
-        />
+      {/* 1. MOVEMOS EL PROVIDER AQUÍ: Ahora envuelve a TODAS las rutas */}
+      <ShiftProvider>
+        <Routes>
+          {/* ════ RUTAS PÚBLICAS ════ */}
+          <Route path="/" element={<Navigate to={ROUTES.LOGIN} replace />} />
+          <Route path={ROUTES.LOGIN} element={<PantallaLogin />} />
+          <Route path={ROUTES.SESION_EXPIRADA} element={<SesionExpirada />} />
+          <Route path={ROUTES.CUENTA_DESACTIVADA} element={<CuentaDesactivada />} />
+          <Route path={ROUTES.NO_AUTORIZADO} element={<PantallaAccesoNoAutorizado />} />
 
-        <Route
-          element={
-            <ProtectedRoute allowedRoles={["root", "admin", "cajero"]} />
-          }
-        >
-          <Route path={ROUTES.PERFIL} element={<PantallaPerfil />} />
-          <Route
-            path={ROUTES.CAMBIO_CONTRASENA}
-            element={<PantallaCambioContraseñaCajero />}
-          />
-        </Route>
+          {/* ════ PERFIL COMÚN ════ */}
+          <Route element={<ProtectedRoute allowedRoles={["root", "admin", "cajero"]} />}>
+            <Route path={ROUTES.PERFIL} element={<PantallaPerfil />} />
+            <Route path={ROUTES.CAMBIO_CONTRASENA} element={<PantallaCambioContraseñaCajero />} />
+          </Route>
 
-        {/* ════ ROL: ROOT ════ */}
-        {/* Envolvemos en ProtectedRoute y le decimos que solo 'root' puede entrar */}
-        <Route element={<ProtectedRoute allowedRoles={["root"]} />}>
-          <Route
-            path="/root"
-            element={<Navigate to={ROUTES.ROOT_DASHBOARD} replace />}
-          />
-          <Route
-            path={ROUTES.ROOT_DASHBOARD}
-            element={<DashboardAdminPage />}
-          />
-          <Route
-            path={ROUTES.ROOT_ADMINISTRADORES}
-            element={<PantallaGestionAdministradores />}
-          />
-          <Route path={ROUTES.ROOT_LOGS} element={<div>Logs</div>} />
-          <Route path={ROUTES.ROOT_CONFIGURACION} element={<div>Config</div>} />
-          <Route path={ROUTES.ROOT_BACKUPS} element={<div>Backups</div>} />
+          {/* ════ ROL: ROOT ════ */}
+          <Route element={<ProtectedRoute allowedRoles={["root"]} />}>
+            <Route path="/root" element={<Navigate to={ROUTES.ROOT_DASHBOARD} replace />} />
+            <Route path={ROUTES.ROOT_DASHBOARD} element={<DashboardAdminPage />} />
+            <Route path={ROUTES.ROOT_ADMINISTRADORES} element={<PantallaGestionAdministradores />} />
+            <Route path={ROUTES.ROOT_LOGS} element={<div>Logs</div>} />
+            <Route path={ROUTES.ROOT_CONFIGURACION} element={<PantallaConfiguracionGlobal />} />
+            <Route path={ROUTES.ROOT_BACKUPS} element={<div>Backups</div>} />
+          </Route>
 
-          {/* Rutas compartidas pero bajo el layout de root */}
-          <Route
-            path={ROUTES.CAMBIO_CONTRASENA}
-            element={<PantallaCambioContraseñaCajero />}
-          />
-        </Route>
+          {/* ════ ROL: ADMINISTRADOR ════ */}
+          <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
+            <Route path="/admin" element={<Navigate to={ROUTES.DASHBOARD} replace />} />
+            <Route path={ROUTES.DASHBOARD} element={<DashboardAdminPage />} />
+            <Route path={ROUTES.CAJEROS} element={<PantallaGestionCajeros />} />
+            <Route path={ROUTES.PRODUCTOS} element={<PantallaGestionProductos />} />
+            <Route path={ROUTES.CATEGORIAS} element={<PantallaGestionCategorias />} />
+            <Route path={ROUTES.AJUSTE_STOCK} element={<PantallaAjusteStock />} />
+            <Route path={ROUTES.HISTORIAL_STOCK} element={<HistorialMovimientosStock />} />
+            <Route path={ROUTES.TURNOS} element={<PantallaTurnos />} />
+            <Route path={ROUTES.LOGS_ADMIN} element={<div>Logs</div>} />
+            <Route path={ROUTES.NOTIFICACIONES} element={<PantallaNotificaciones />} />
+          </Route>
 
-        {/* ════ ROL: ADMINISTRADOR ════ */}
-        <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
-          <Route
-            path="/admin"
-            element={<Navigate to={ROUTES.DASHBOARD} replace />}
-          />
-          <Route path={ROUTES.DASHBOARD} element={<DashboardAdminPage />} />
-          <Route path={ROUTES.CAJEROS} element={<PantallaGestionCajeros />} />
-          <Route
-            path={ROUTES.PRODUCTOS}
-            element={<PantallaGestionProductos />}
-          />
-          <Route
-            path={ROUTES.CATEGORIAS}
-            element={<PantallaGestionCategorias />}
-          />
-          <Route path={ROUTES.AJUSTE_STOCK} element={<PantallaAjusteStock />} />
-          <Route
-            path={ROUTES.HISTORIAL_STOCK}
-            element={<HistorialMovimientosStock />}
-          />
-          <Route path={ROUTES.TURNOS} element={<PantallaTurnos />} />
-          <Route path={ROUTES.LOGS_ADMIN} element={<div>Logs</div>} />
-          <Route
-            path={ROUTES.NOTIFICACIONES}
-            element={<PantallaNotificaciones />}
-          />
+          {/* ════ ROL: CAJERO ════ */}
+          <Route element={<ProtectedRoute allowedRoles={["cajero"]} />}>
+            <Route path="/cajero" element={<Navigate to={ROUTES.PRE_TURNO} replace />} />
+            
+            {/* Rutas sin turno abierto */}
+            <Route path={ROUTES.PRE_TURNO} element={<PantallaPreTurno />} />
+            <Route path={ROUTES.RESULTADO_CIERRE} element={<PantallaResultadoCierreTurno />} />
 
-          <Route
-            path={ROUTES.CAMBIO_CONTRASENA}
-            element={<PantallaCambioContraseñaCajero />}
-          />
-        </Route>
+            {/* ════ ZONA PROTEGIDA POR TURNO ════ */}
+            <Route element={<ShiftGuard />}>
+              <Route path={ROUTES.POS} element={<PantallaPos />} />
+              <Route path={ROUTES.VENTAS_TURNO} element={<PantallaVentasTurnoActual />} />
+              <Route path={ROUTES.VENTA_INDIVIDUAL} element={<PantallaVentaIndividual />} />
+              <Route path={ROUTES.DETALLE_VENTA} element={<PantallaDetalleVenta />} />
+              <Route path={ROUTES.COMPROBANTE} element={<PantallaComprobante />} />
+            </Route>
+          </Route>
 
-        {/* ════ ROL: CAJERO ════ */}
-        <Route element={<ProtectedRoute allowedRoles={["cajero"]} />}>
-          <Route
-            path="/cajero"
-            element={<Navigate to={ROUTES.PRE_TURNO} replace />}
-          />
-          <Route path={ROUTES.PRE_TURNO} element={<PantallaPreTurno />} />
-          <Route path={ROUTES.POS} element={<PantallaPos />} />
-          <Route path={ROUTES.VENTAS_TURNO} element={<PantallaVentasTurnoActual />} />
-          <Route path={ROUTES.VENTA_INDIVIDUAL} element={<PantallaVentaIndividual />} />
-          <Route path={ROUTES.RESULTADO_CIERRE} element={<PantallaResultadoCierreTurno />} />
-          <Route path={ROUTES.CAMBIO_CONTRASENA} element={<PantallaCambioContraseñaCajero />} />
-          <Route path={ROUTES.DETALLE_VENTA} element={<PantallaDetalleVenta />} />
-          <Route path={ROUTES.COMPROBANTE} element={<PantallaComprobante />} />
-
-
-        </Route>
-
-        {/* Catch-all */}
-        <Route
-          path="*"
-          element={<Navigate to={ROUTES.NO_AUTORIZADO} replace />}
-        />
-      </Routes>
+          {/* Catch-all */}
+          <Route path="*" element={<Navigate to={ROUTES.NO_AUTORIZADO} replace />} />
+        </Routes>
+      </ShiftProvider>
     </BrowserRouter>
   );
 };

@@ -1,99 +1,182 @@
-import React from "react";
-import { User, Eye, ChevronRight } from "lucide-react";
+import React, { useState } from "react";
+import { Eye, EyeOff, ArrowRight, Lock, User } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { Link } from "react-router-dom";
 import { ROUTES } from "@/utils/constants";
+
 export const PantallaLogin = () => {
   const { username, setUsername, password, setPassword, handleLogin, error } =
     useAuth();
+  const [showPassword, setShowPassword] = useState(false);
+  const [focusedField, setFocusedField] = useState(null);
 
   return (
-    <div className="min-h-screen bg-[#E9E7D9] flex items-center justify-center p-4 font-sans text-[#442727]">
-      <div className="bg-[#FFFBE7] p-8 rounded-[2.5rem] shadow-md w-full max-w-[450px] border border-[#D2C6B2]/40">
-        <div className="text-center mb-8">
-          <div className="bg-[#7F793B] w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-[#7F793B]/20">
-            <span className="text-white text-3xl">☕</span>
-          </div>
-          <h1 className="text-2xl font-bold text-[#442727]">Café UCB</h1>
-          <p className="text-[#442727]/70 text-sm italic">
-            Sistemas de Soporte a Decisiones
-          </p>
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
 
-          <h2 className="mt-8 text-xl font-semibold text-[#7F793B]">
-            Bienvenido de nuevo
-          </h2>
-          <p className="text-[#442727]/60 text-sm mt-2">
-            Ingresa tus credenciales para operar el sistema
-          </p>
+      {/* Decorative blobs */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full opacity-[0.06]"
+          style={{ background: "var(--primary)" }} />
+        <div className="absolute -bottom-20 -left-20 w-72 h-72 rounded-full opacity-[0.05]"
+          style={{ background: "var(--navbar)" }} />
+      </div>
+
+      <div className="relative w-full max-w-[420px] animate-slide-up">
+
+        {/* ── Header ── */}
+        <div className="rounded-t-2xl overflow-hidden" style={{ background: "var(--navbar)" }}>
+          {/* Acento superior */}
+          <div className="h-[3px] w-full" style={{
+            background: "linear-gradient(90deg, var(--primary), color-mix(in srgb, var(--primary) 50%, transparent))",
+          }} />
+
+          <div className="px-7 py-5 flex items-center gap-4">
+            {/* Ícono de taza SVG */}
+            <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+              style={{ background: "color-mix(in srgb, var(--primary) 22%, transparent)" }}>
+              <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
+                <path d="M4 14h18v6a6 6 0 0 1-6 6H10a6 6 0 0 1-6-6v-6z" fill="var(--primary-foreground)" opacity="0.9"/>
+                <rect x="4" y="11" width="18" height="4" rx="2" fill="var(--primary-foreground)" opacity="0.4"/>
+                <path d="M22 15h2a3 3 0 0 1 0 6h-2" stroke="var(--primary-foreground)" strokeWidth="1.8" strokeLinecap="round" opacity="0.65"/>
+                <path d="M10 7c0 0 1.5-1.5 0-3M15 7c0 0 1.5-1.5 0-3" stroke="var(--primary-foreground)" strokeWidth="1.4" strokeLinecap="round" opacity="0.4"/>
+                <rect x="7" y="25" width="12" height="1.5" rx="0.75" fill="var(--primary-foreground)" opacity="0.25"/>
+              </svg>
+            </div>
+
+            <div className="flex-1">
+              <p className="text-[17px] font-bold tracking-tight leading-none"
+                style={{ color: "var(--navbar-foreground)" }}>
+                Café UCB
+              </p>
+          
+            </div>
+
+            {/* Indicador en línea */}
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full"
+              style={{ background: "color-mix(in srgb, var(--primary) 18%, transparent)" }}>
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--primary)" }} />
+             
+            </div>
+          </div>
         </div>
 
-        {error && (
-          <div className="mb-4 text-red-600 text-sm font-semibold text-center bg-red-50 p-2 rounded-lg border border-red-200">
-            {error}
-          </div>
-        )}
+        {/* ── Form ── */}
+        <div className="rounded-b-2xl px-7 py-8 border border-t-0"
+          style={{ background: "var(--card)", borderColor: "var(--border)" }}>
 
-        <form onSubmit={handleLogin} className="space-y-6">
-          <div>
-            <label className="text-xs font-bold text-[#7F793B] uppercase ml-1">
-              Usuario
-            </label>
-            <div className="relative mt-1">
-              <User
-                className="absolute left-3 top-3 text-[#D2C6B2]"
-                size={18}
-              />
-              <input
-                type="text"
-                value={username}
-                placeholder="Tu nombre de usuario"
-                className="w-full pl-10 p-3.5 rounded-xl border border-[#D2C6B2] outline-none focus:border-[#7F793B] transition-all bg-white/50 text-[#442727]"
-                onChange={(e) => setUsername(e.target.value)}
-                required
-              />
+          <div className="mb-7">
+            <h2 className="text-[22px] font-semibold tracking-tight" style={{ color: "var(--foreground)" }}>
+              Bienvenido de nuevo
+            </h2>
+            <p className="text-sm mt-1.5" style={{ color: "var(--muted-foreground)" }}>
+              Ingresa tus credenciales para continuar
+            </p>
+          </div>
+
+          {error && (
+            <div className="mb-5 px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2 animate-fade-in"
+              style={{
+                background: "color-mix(in srgb, var(--destructive) 10%, transparent)",
+                border: "1px solid color-mix(in srgb, var(--destructive) 30%, transparent)",
+                color: "var(--destructive)",
+              }}>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 3a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 8 4zm0 8a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/>
+              </svg>
+              {error}
             </div>
-          </div>
+          )}
 
-          <div>
-            <div className="flex justify-between">
-              <label className="text-xs font-bold text-[#7F793B] uppercase ml-1">
-                Contraseña
+          <form onSubmit={handleLogin} className="space-y-5">
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-widest mb-2"
+                style={{ color: "var(--muted-foreground)" }}>
+                Usuario
               </label>
-              <Link
-                // eslint-disable-next-line no-undef
-                to={ROUTES.CAMBIO_CONTRASENA}
-                className="text-[#7F793B] text-xs font-semibold hover:underline"
-              >
-                Cambia tu contraseña
-              </Link>
+              <div className="relative">
+                {/* Ícono posicionado a una distancia segura */}
+                <User size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                  style={{
+                    color: focusedField === "username" ? "var(--primary)" : "var(--muted-foreground)",
+                    transition: "color 0.2s",
+                  }} />
+                <input
+                  type="text"
+                  value={username}
+                  placeholder="nombre.apellido"
+                  className="input transition-all duration-200"
+                  style={{
+                    paddingLeft: "40px", /* Forzamos el padding para evitar superposición */
+                    borderColor: focusedField === "username" ? "var(--primary)" : "var(--border)",
+                    boxShadow: focusedField === "username"
+                      ? "0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent)" : "none",
+                  }}
+                  onFocus={() => setFocusedField("username")}
+                  onBlur={() => setFocusedField(null)}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required autoComplete="username"
+                />
+              </div>
             </div>
-            <div className="relative mt-1">
-              <input
-                type="password"
-                value={password}
-                placeholder="••••••••"
-                className="w-full px-4 p-3.5 rounded-xl border border-[#D2C6B2] outline-none focus:border-[#7F793B] transition-all bg-white/50 text-[#442727]"
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-              <Eye
-                className="absolute right-3 top-3.5 text-[#D2C6B2] cursor-pointer"
-                size={18}
-              />
+
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-[10px] font-bold uppercase tracking-widest"
+                  style={{ color: "var(--muted-foreground)" }}>
+                  Contraseña
+                </label>
+               
+
+              </div>
+              <div className="relative">
+                {/* Ícono posicionado a una distancia segura */}
+                <Lock size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                  style={{
+                    color: focusedField === "password" ? "var(--primary)" : "var(--muted-foreground)",
+                    transition: "color 0.2s",
+                  }} />
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  placeholder="••••••••••"
+                  className="input pr-10 transition-all duration-200"
+                  style={{
+                    paddingLeft: "40px", /* Forzamos el padding para evitar superposición */
+                    borderColor: focusedField === "password" ? "var(--primary)" : "var(--border)",
+                    boxShadow: focusedField === "password"
+                      ? "0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent)" : "none",
+                  }}
+                  onFocus={() => setFocusedField("password")}
+                  onBlur={() => setFocusedField(null)}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required autoComplete="current-password"
+                />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} tabIndex={-1}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded hover:opacity-70 transition-opacity"
+                  style={{ color: "var(--muted-foreground)" }}
+                  aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}>
+                  {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+              </div>
             </div>
+
+            <button type="submit"
+              className="button button-default button-lg w-full mt-1 group"
+              style={{ height: "44px" }}>
+              <span>Iniciar sesión</span>
+              <ArrowRight size={16} className="ml-2 transition-transform duration-200 group-hover:translate-x-1" />
+            </button>
+          </form>
+
+          <div className="mt-7 pt-5" style={{ borderTop: "1px solid var(--border)" }}>
+            <p className="text-[11px] text-center" style={{ color: "var(--muted-foreground)" }}>
+              Acceso auditado · Cada sesión queda registrada con marca de tiempo
+            </p>
           </div>
+        </div>
 
-          <button
-            type="submit"
-            className="w-full bg-[#7F793B] hover:bg-[#442727] text-[#FFFBE7] font-semibold py-4 rounded-2xl transition-all flex items-center justify-center gap-2 shadow-md active:scale-[0.98]"
-          >
-            Iniciar sesión <ChevronRight size={18} />
-          </button>
-        </form>
-
-        <p className="mt-12 text-[10px] text-[#442727]/50 text-center leading-relaxed px-6 italic font-medium">
-          Este es un sistema TPS auditado. Cada acceso queda registrado con
-          marca de tiempo y usuario.
+        <p className="text-center text-[10px] mt-4 opacity-40" style={{ color: "var(--muted-foreground)" }}>
+          Universidad Católica Boliviana · 2025
         </p>
       </div>
     </div>

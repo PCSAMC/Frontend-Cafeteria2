@@ -1,9 +1,44 @@
-import React from 'react';
-import { User, Mail, Lock, Shield, Save, KeyRound } from 'lucide-react';
-import { useProfile } from '../features/auth/hooks/useProfile'; // Ajusta la ruta
+import React, { useState } from 'react';
+import { User, Mail, Lock, Shield, Save, KeyRound, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
+import { useProfile } from '../features/auth/hooks/useProfile';
+
+// Componente de campo de contraseña reutilizable
+const PasswordField = ({ label, value, onChange, placeholder, focused, onFocus, onBlur, fieldKey }) => {
+  const [show, setShow] = useState(false);
+  return (
+    <div>
+      <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5"
+        style={{ color: "var(--muted-foreground)" }}>
+        {label}
+      </label>
+      <div className="relative">
+        <KeyRound size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
+          style={{ color: focused === fieldKey ? "var(--primary)" : "var(--muted-foreground)", transition: "color 0.2s" }} />
+        <input
+          type={show ? "text" : "password"}
+          placeholder={placeholder}
+          value={value}
+          onChange={onChange}
+          onFocus={onFocus}
+          onBlur={onBlur}
+          className="input pr-10 transition-all duration-200"
+          style={{
+            paddingLeft: "40px", /* Forzamos el padding para evitar superposición con el ícono */
+            borderColor: focused === fieldKey ? "var(--primary)" : "var(--border)",
+            boxShadow: focused === fieldKey ? "0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent)" : "none",
+          }}
+        />
+        <button type="button" onClick={() => setShow(!show)} tabIndex={-1}
+          className="absolute right-3 top-1/2 -translate-y-1/2 hover:opacity-70 transition-opacity"
+          style={{ color: "var(--muted-foreground)" }}>
+          {show ? <EyeOff size={13} /> : <Eye size={13} />}
+        </button>
+      </div>
+    </div>
+  );
+};
 
 export const PantallaPerfil = () => {
-  // Extraemos todo lo necesario del hook
   const {
     userData,
     currentPassword, setCurrentPassword,
@@ -13,114 +48,152 @@ export const PantallaPerfil = () => {
     handleUpdatePassword
   } = useProfile();
 
-  return (
-    <div className="min-h-screen bg-[#E9E7D9] p-6 font-sans text-[#442727]">
-      <div className="max-w-4xl mx-auto space-y-6">
-        
-        {/* Encabezado */}
-        <div className="bg-[#FFFBE7] p-8 rounded-[2rem] shadow-sm border border-[#D2C6B2]/40 flex items-center gap-6">
-          <div className="bg-[#7F793B] w-20 h-20 rounded-3xl flex items-center justify-center shadow-lg shadow-[#7F793B]/20">
-            <User className="text-[#FFFBE7]" size={40} />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold uppercase">{userData.nombre}</h1>
-            <p className="text-[#7F793B] font-medium">{userData.rol}</p>
-            <p className="text-[#442727]/60 text-sm italic">Acceso auditado por el sistema</p>
-          </div>
-        </div>
+  const [focusedField, setFocusedField] = useState(null);
 
-        <div className="grid md:grid-cols-2 gap-6">
-          {/* Datos Personales */}
-          <div className="bg-[#FFFBE7] p-8 rounded-[2rem] shadow-sm border border-[#D2C6B2]/40">
-            <h2 className="text-lg font-bold mb-6 flex items-center gap-2">
-              <Mail size={20} className="text-[#7F793B]" /> Datos de Usuario
-            </h2>
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-bold text-[#7F793B] uppercase ml-1">Correo Electrónico</label>
-                <div className="mt-1 p-3 bg-white/50 border border-[#D2C6B2] rounded-xl text-[#442727]/70">
-                  {userData.email}
+  return (
+    <div className="min-h-screen p-6">
+      <div className="max-w-3xl mx-auto space-y-5">
+
+        {/* ── Hero de perfil ── */}
+        <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+          {/* Barra de color */}
+          <div className="h-16"/>
+          {/* Contenido */}
+          <div className="px-7 pb-6" style={{ background: "var(--card)" }}>
+            {/* Avatar superpuesto */}
+            <div className="-mt-8 mb-4 flex items-end justify-between">
+              <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
+                style={{
+                  background: "var(--primary)",
+                  border: "3px solid var(--card)",
+                  boxShadow: "0 4px 14px color-mix(in srgb, var(--primary) 30%, transparent)",
+                }}>
+                <User size={28} style={{ color: "var(--primary-foreground)" }} />
+              </div>
+              {/* Badge de rol */}
+              <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider"
+                style={{
+                  background: "color-mix(in srgb, var(--primary) 12%, transparent)",
+                  color: "var(--primary)",
+                  border: "1px solid color-mix(in srgb, var(--primary) 25%, transparent)",
+                }}>
+                {userData.rol}
+              </span>
+            </div>
+
+            <h1 className="text-xl font-bold tracking-tight" style={{ color: "var(--foreground)" }}>
+              {userData.nombre}
+            </h1>
+            <p className="text-sm mt-0.5" style={{ color: "var(--muted-foreground)" }}>
+              {userData.email}
+            </p>
+
+            {/* Info rápida */}
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl"
+                style={{ background: "var(--muted)", border: "1px solid var(--border)" }}>
+                <Mail size={14} style={{ color: "var(--primary)" }} />
+                <div>
+                  <p className="text-[9px] uppercase tracking-widest font-bold" style={{ color: "var(--muted-foreground)" }}>Correo</p>
+                  <p className="text-xs font-medium truncate" style={{ color: "var(--foreground)" }}>{userData.email}</p>
                 </div>
               </div>
-              <div>
-                <label className="text-xs font-bold text-[#7F793B] uppercase ml-1">Estado de Cuenta</label>
-                <div className="mt-1 p-3 bg-white/50 border border-[#D2C6B2] rounded-xl flex items-center gap-2">
-                  <Shield size={16} className="text-green-600" /> Activa y Protegida
+              <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl"
+                style={{ background: "var(--muted)", border: "1px solid var(--border)" }}>
+                <Shield size={14} style={{ color: "var(--primary)" }} />
+                <div>
+                  <p className="text-[9px] uppercase tracking-widest font-bold" style={{ color: "var(--muted-foreground)" }}>Estado</p>
+                  <p className="text-xs font-medium" style={{ color: "var(--foreground)" }}>Cuenta activa</p>
                 </div>
               </div>
             </div>
           </div>
-
-          {/* Formulario de Seguridad */}
-          <div className="bg-[#FFFBE7] p-8 rounded-[2rem] shadow-sm border border-[#D2C6B2]/40">
-            <h2 className="text-lg font-bold mb-6 flex items-center gap-2">
-              <Lock size={20} className="text-[#7F793B]" /> Seguridad
-            </h2>
-            
-            <form onSubmit={handleUpdatePassword} className="space-y-4">
-              <div>
-                <label className="text-xs font-bold text-[#7F793B] uppercase ml-1">Contraseña Actual</label>
-                <div className="relative">
-                  <KeyRound className="absolute left-3 top-4 text-[#D2C6B2]" size={16} />
-                  <input 
-                    type="password" 
-                    placeholder="••••••••"
-                    value={currentPassword}
-                    className="w-full mt-1 pl-10 p-3 rounded-xl border border-[#D2C6B2] outline-none focus:border-[#7F793B] bg-white/50 transition-all"
-                    onChange={(e) => setCurrentPassword(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-[#7F793B] uppercase ml-1">Nueva Contraseña</label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-4 text-[#D2C6B2]" size={16} />
-                  <input 
-                    type="password" 
-                    placeholder="••••••••"
-                    value={newPassword}
-                    className="w-full mt-1 pl-10 p-3 rounded-xl border border-[#D2C6B2] outline-none focus:border-[#7F793B] bg-white/50 transition-all"
-                    onChange={(e) => setNewPassword(e.target.value)}
-                  />
-                </div>
-              </div>
-              
-              <div>
-                <label className="text-xs font-bold text-[#7F793B] uppercase ml-1">Confirmar Nueva Contraseña</label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-4 text-[#D2C6B2]" size={16} />
-                  <input 
-                    type="password" 
-                    placeholder="••••••••"
-                    value={confirmPassword}
-                    className="w-full mt-1 pl-10 p-3 rounded-xl border border-[#D2C6B2] outline-none focus:border-[#7F793B] bg-white/50 transition-all"
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              {error && (
-                <div className="text-red-600 text-xs font-bold text-center bg-red-50 p-2 rounded-lg border border-red-200">
-                  {error}
-                </div>
-              )}
-              {success && (
-                <div className="text-green-700 text-xs font-bold text-center bg-green-50 p-2 rounded-lg border border-green-200">
-                  {success}
-                </div>
-              )}
-
-              <button 
-                type="submit" 
-                disabled={loading}
-                className={`w-full bg-[#7F793B] hover:bg-[#442727] text-[#FFFBE7] font-semibold py-3 rounded-xl transition-all flex items-center justify-center gap-2 shadow-md active:scale-[0.98] ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
-              >
-                {loading ? 'Guardando...' : 'Guardar Cambios'} <Save size={18} />
-              </button>
-            </form>
-          </div>
         </div>
+
+        {/* ── Seguridad ── */}
+        <div className="rounded-2xl p-7" style={{ background: "var(--card)", border: "1px solid var(--border)" }}>
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center"
+              style={{ background: "color-mix(in srgb, var(--primary) 12%, transparent)" }}>
+              <Lock size={14} style={{ color: "var(--primary)" }} />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold" style={{ color: "var(--foreground)" }}>Seguridad</h2>
+              <p className="text-[11px]" style={{ color: "var(--muted-foreground)" }}>Actualiza tu contraseña de acceso</p>
+            </div>
+          </div>
+
+          <form onSubmit={handleUpdatePassword} className="space-y-4">
+            <PasswordField
+              label="Contraseña actual"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              placeholder="Tu clave actual"
+              focused={focusedField}
+              onFocus={() => setFocusedField("current")}
+              onBlur={() => setFocusedField(null)}
+              fieldKey="current"
+            />
+            <div className="grid md:grid-cols-2 gap-4">
+              <PasswordField
+                label="Nueva contraseña"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Mínimo 6 caracteres"
+                focused={focusedField}
+                onFocus={() => setFocusedField("new")}
+                onBlur={() => setFocusedField(null)}
+                fieldKey="new"
+              />
+              <PasswordField
+                label="Confirmar contraseña"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Repite la nueva clave"
+                focused={focusedField}
+                onFocus={() => setFocusedField("confirm")}
+                onBlur={() => setFocusedField(null)}
+                fieldKey="confirm"
+              />
+            </div>
+
+            {error && (
+              <div className="px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2 animate-fade-in"
+                style={{
+                  background: "color-mix(in srgb, var(--destructive) 10%, transparent)",
+                  border: "1px solid color-mix(in srgb, var(--destructive) 30%, transparent)",
+                  color: "var(--destructive)",
+                }}>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 3a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 8 4zm0 8a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/>
+                </svg>
+                {error}
+              </div>
+            )}
+
+            {success && (
+              <div className="px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2 animate-fade-in"
+                style={{
+                  background: "color-mix(in srgb, #3a7d44 10%, transparent)",
+                  border: "1px solid color-mix(in srgb, #3a7d44 30%, transparent)",
+                  color: "#3a7d44",
+                }}>
+                <CheckCircle2 size={14} />
+                {success}
+              </div>
+            )}
+
+            <div className="pt-1">
+              <button type="submit" disabled={loading}
+                className="button button-default button-md group flex items-center gap-2"
+                style={{ opacity: loading ? 0.7 : 1, cursor: loading ? "not-allowed" : "pointer" }}>
+                <Save size={14} />
+                {loading ? "Guardando..." : "Guardar cambios"}
+              </button>
+            </div>
+          </form>
+        </div>
+
       </div>
     </div>
   );

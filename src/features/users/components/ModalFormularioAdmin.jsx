@@ -1,8 +1,5 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import React, { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export const ModalFormularioAdmin = ({ open, onClose, onSubmit, admin = null }) => {
   const isEditing = Boolean(admin);
@@ -11,12 +8,11 @@ export const ModalFormularioAdmin = ({ open, onClose, onSubmit, admin = null }) 
 
   useEffect(() => {
     if (open) {
-      setForm(admin ? { 
-        fullName: admin.fullName, 
-        username: admin.username, 
-        email: admin.email, 
-        password: "" 
-      } : { fullName: "", username: "", email: "", password: "" });
+      setForm(
+        admin
+          ? { fullName: admin.fullName, username: admin.username, email: admin.email, password: "" }
+          : { fullName: "", username: "", email: "", password: "" }
+      );
     }
   }, [open, admin]);
 
@@ -25,11 +21,7 @@ export const ModalFormularioAdmin = ({ open, onClose, onSubmit, admin = null }) 
     setIsSubmitting(true);
     try {
       const payload = { ...form };
-      
-      if (isEditing) {
-        if (!payload.password) delete payload.password;
-      }
-
+      if (isEditing && !payload.password) delete payload.password;
       await onSubmit(payload);
       onClose();
     } catch (error) {
@@ -39,62 +31,109 @@ export const ModalFormularioAdmin = ({ open, onClose, onSubmit, admin = null }) 
     }
   };
 
+  if (!open) return null;
+
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>{isEditing ? "Editar" : "Nuevo"} Administrador</DialogTitle>
-        </DialogHeader>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-xl">
+
+        {/* HEADER */}
+        <div className="mb-6">
+          <h3 className="text-lg font-semibold text-foreground">
+            {isEditing ? "Editar" : "Nuevo"} Administrador
+          </h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {isEditing
+              ? "Modifica los datos del administrador"
+              : "Completa los datos para registrar un administrador"}
+          </p>
+        </div>
+
+        {/* FORMULARIO */}
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1">
-            <label className="text-sm font-medium">Nombre Completo</label>
-            <Input 
-              value={form.fullName} 
-              onChange={e => setForm({...form, fullName: e.target.value})} 
-              required 
+
+          {/* Nombre Completo */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">Nombre Completo</label>
+            <input
+              value={form.fullName}
+              onChange={(e) => setForm({ ...form, fullName: e.target.value })}
+              required
               placeholder="Ej. Juan Pérez"
+              className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
             />
           </div>
-          <div className="space-y-1">
-            <label className="text-sm font-medium">Usuario</label>
-            <Input 
-              value={form.username} 
-              onChange={e => setForm({...form, username: e.target.value})} 
-              required 
+
+          {/* Usuario */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">Usuario</label>
+            <input
+              value={form.username}
+              onChange={(e) => setForm({ ...form, username: e.target.value })}
+              required
               placeholder="jperez"
+              className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 font-mono"
             />
           </div>
-          <div className="space-y-1">
-            <label className="text-sm font-medium">Email</label>
-            <Input 
-              type="email" 
-              value={form.email} 
-              onChange={e => setForm({...form, email: e.target.value})} 
-              required 
+
+          {/* Email */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">Email</label>
+            <input
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              required
               placeholder="correo@ejemplo.com"
+              className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
             />
           </div>
-          <div className="space-y-1">
-            <label className="text-sm font-medium">
+
+          {/* Contraseña */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">
               {isEditing ? "Nueva Contraseña (opcional)" : "Contraseña"}
             </label>
-            <Input 
-              type="password" 
-              value={form.password} 
-              onChange={e => setForm({...form, password: e.target.value})} 
-              required={!isEditing} 
+            <input
+              type="password"
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              required={!isEditing}
+              placeholder={isEditing ? "Dejar vacío para no cambiar" : "••••••••"}
+              className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
             />
           </div>
-          <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
+
+          {/* BOTONES */}
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isSubmitting}
+              className="rounded-xl border border-border px-4 py-2 text-sm hover:bg-accent disabled:opacity-50"
+            >
               Cancelar
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Guardando..." : "Guardar Administrador"}
-            </Button>
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+            >
+              {isSubmitting ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                  </svg>
+                  Guardando...
+                </>
+              ) : (
+                "Guardar Administrador"
+              )}
+            </button>
           </div>
         </form>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   );
 };

@@ -1,16 +1,58 @@
-"use client";
-
-import { useState } from "react";
+/* eslint-disable react-hooks/set-state-in-effect */
+import { useEffect, useState } from "react";
 import { Clock, User, Calendar } from "lucide-react";
-import { OpenShiftModal } from "../components/ModalAperturaTurno";
+import { useNavigate } from "react-router-dom";
+import { OpenShiftModal } from "../components/ModalAperturaTurno"; // Ajusta la ruta si es necesario
+import { useShifts } from "../hooks/useShifts"; // Ajusta la ruta a tu hook
+import { ROUTES } from "@/utils/constants";
 
 export const PantallaPreTurno = () => {
   const [openModal, setOpenModal] = useState(false);
+  const [isOpening, setIsOpening] = useState(false);
+  const navigate = useNavigate();
+  
+  const { currentShift, openShift } = useShifts();
 
-  // Simulación de datos del cajero
-  const cashierData = {
-    name: "Juan Pérez",
-    lastSession: "2024-04-20 14:30",
+  // Estado para guardar el nombre real del cajero
+  const [cashierName, setCashierName] = useState("Cajero en turno");
+
+  
+  // Leemos el localStorage correctamente al montar la pantalla
+  useEffect(() => {
+    const userDataString = localStorage.getItem("userData");
+    if (userDataString) {
+      try {
+        const userData = JSON.parse(userDataString);
+        setCashierName(userData.username || userData.name || "Cajero en turno");
+      } catch (error) {
+        console.error("Error al leer los datos del usuario:", error);
+      }
+    }
+  }, []);
+
+useEffect(() => {
+    // Si el estado global dice que YA hay turno, ¡vete al POS!
+    if (currentShift) {
+      console.log("Detectado turno abierto, redirigiendo...");
+      navigate(ROUTES.POS, { replace: true });
+    }
+  }, [currentShift, navigate]);
+
+  // Función que el modal llamará para hacer la petición real
+  const handleApertura = async (monto) => {
+    setIsOpening(true);
+    try {
+      await openShift(monto);
+      setOpenModal(false);
+      // Al ser exitoso, lo mandamos a vender
+      navigate(ROUTES.POS, { replace: true });
+    // eslint-disable-next-line no-useless-catch
+    } catch (error) {
+      // Lanzamos el error para que el modal lo ataje y lo muestre
+      throw error;
+    } finally {
+      setIsOpening(false);
+    }
   };
 
   return (
@@ -35,8 +77,8 @@ export const PantallaPreTurno = () => {
             <div className="flex items-center gap-3 text-sm">
               <User className="h-4 w-4 text-muted-foreground" />
               <span className="text-muted-foreground">Usuario:</span>
-              <span className="font-medium text-foreground">
-                {cashierData.name}
+              <span className="font-medium text-foreground capitalize">
+                {cashierName}
               </span>
             </div>
             <div className="flex items-center gap-3 text-sm">
@@ -62,18 +104,10 @@ export const PantallaPreTurno = () => {
             </div>
           </div>
 
-          {/* Última sesión */}
-          <div className="mt-4 rounded-xl bg-muted/50 p-3 text-center">
-            <p className="text-xs text-muted-foreground">Última sesión</p>
-            <p className="mt-1 text-sm font-medium text-foreground">
-              {cashierData.lastSession}
-            </p>
-          </div>
-
           {/* Botón principal */}
           <button
             onClick={() => setOpenModal(true)}
-            className="mt-6 w-full rounded-xl bg-primary py-3 text-base font-semibold text-primary-foreground shadow-lg hover:opacity-90"
+            className="mt-6 w-full rounded-xl bg-primary py-3 text-base font-semibold text-primary-foreground shadow-lg hover:opacity-90 transition-opacity"
           >
             Abrir Turno
           </button>
@@ -92,8 +126,10 @@ export const PantallaPreTurno = () => {
       <OpenShiftModal
         open={openModal}
         onClose={() => setOpenModal(false)}
-        cashierName={cashierData.name}
+        cashierName={cashierName}
+        onConfirm={handleApertura}
+        isLoading={isOpening}
       />
     </div>
   );
-}
+};

@@ -1,4 +1,6 @@
 import axios from 'axios';
+// AÑADIDO: Asegúrate de que la ruta de importación coincida con donde tienes tu useCrud
+import { CrudService } from '@/hooks/useCrud'; 
 
 export const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api',
@@ -24,7 +26,9 @@ apiClient.interceptors.request.use(
   },
   (error) => Promise.reject(error)
 );
-export class BaseService<T, CreateDto = Partial<T>, UpdateDto = Partial<T>> {
+
+// AÑADIDO: "implements CrudService<T, CreateDto, UpdateDto>" para que TypeScript valide el contrato
+export class BaseService<T, CreateDto = Partial<T>, UpdateDto = Partial<T>> implements CrudService<T, CreateDto, UpdateDto> {
   protected endpoint: string;
 
   constructor(endpoint: string) {

@@ -1,7 +1,8 @@
 "use client";
 
 import React from "react";
-import { Trash2, Minus, Plus, ShoppingCart, Receipt, X } from "lucide-react";
+// Añadimos ClipboardList para el icono de registro
+import { Trash2, Minus, Plus, ShoppingCart, Receipt, X, ClipboardList } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -15,6 +16,7 @@ export const CurrentOrder = ({
   onRemoveItem,
   onClearOrder,
   onCheckout,
+  onRegisterOrder, // <-- Nueva prop para registrar sin cobrar
 }) => {
   const totalItems = order.reduce((sum, item) => sum + item.cantidad, 0);
 
@@ -82,7 +84,6 @@ export const CurrentOrder = ({
                         {item.precio.toFixed(2)}
                       </p>
                     </div>
-                    {/* Microinteracción: Botón de eliminar oculto por defecto */}
                     <Button 
                       variant="ghost" 
                       size="icon" 
@@ -94,7 +95,6 @@ export const CurrentOrder = ({
                   </div>
 
                   <div className="flex items-center justify-between mt-1">
-                    {/* Controles de cantidad compactos */}
                     <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-xl">
                       <Button 
                         variant="outline" 
@@ -135,7 +135,7 @@ export const CurrentOrder = ({
         </ScrollArea>
       </div>
 
-      {/* FOOTER COBRO */}
+      {/* FOOTER COBRO ACTUALIZADO */}
       <CardFooter className="flex-col gap-4 p-5 border-t border-border/40 bg-card flex-shrink-0">
         <div className="w-full space-y-3">
           <div className="flex justify-between items-center text-xs font-bold text-muted-foreground px-1">
@@ -163,14 +163,27 @@ export const CurrentOrder = ({
           </div>
         </div>
 
-        <Button 
-          className="w-full h-14 text-sm font-black uppercase tracking-widest shadow-lg shadow-primary/25 rounded-xl hover:scale-[1.01] transition-transform"
-          disabled={order.length === 0}
-          onClick={onCheckout}
-        >
-          <Receipt className="mr-2 h-5 w-5" />
-          Procesar Cobro
-        </Button>
+        {/* CONTENEDOR DE BOTONES DUALES */}
+        <div className="grid grid-cols-2 gap-3 w-full">
+          <Button 
+            variant="outline"
+            className="h-14 text-[11px] font-black uppercase tracking-wider border-2 hover:bg-primary/5 transition-all rounded-xl"
+            disabled={order.length === 0}
+            onClick={onRegisterOrder}
+          >
+            <ClipboardList className="mr-2 h-4 w-4" />
+            Solo Registrar
+          </Button>
+
+          <Button 
+            className="h-14 text-[11px] font-black uppercase tracking-wider shadow-lg shadow-primary/25 rounded-xl hover:scale-[1.02] active:scale-95 transition-all"
+            disabled={order.length === 0}
+            onClick={onCheckout}
+          >
+            <Receipt className="mr-2 h-4 w-4" />
+            Cobrar Ahora
+          </Button>
+        </div>
       </CardFooter>
     </Card>
   );

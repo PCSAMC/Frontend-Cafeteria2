@@ -1,40 +1,104 @@
 "use client";
 
-import { AlertCircle, X } from "lucide-react";
+import { useState } from "react";
+import { AlertCircle, X, Loader2 } from "lucide-react";
+import { usePos } from "@/features/pos/hooks/usePos"; // Asegúrate de que la ruta sea correcta
+import { toast } from "sonner";
 
-export const RequestCancellationModal = ({ open, onClose, saleId }) => {
+export const RequestCancellationModal = ({ open, onClose, saleId, onSuccess }) => {
+  const [reason, setReason] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { orders } = usePos();
+
   if (!open) return null;
 
+  const handleSubmit = async () => {
+    // 1. Validar que haya un motivo
+    if (!reason.trim()) {
+      return toast.error("Debes ingresar un motivo para la anulación");
+    }
+
+    setIsSubmitting(true);
+    try {
+      // 2. Llamada a la API
+      // Nota: Verifica si en tu usePos la función se llama 'void', 'cancel' o 'remove'
+      // Basado en estandares de POS, suele ser orders.void(id, data)
+      await orders.void(saleId, { reason: reason.trim() });
+
+      toast.success(`Venta #${saleId} anulada correctamente`);
+      
+      // 3. Limpiar y cerrar
+      setReason("");
+      if (onSuccess) onSuccess(); // Esto refresca la lista en la pantalla de atrás
+      onClose();
+    } catch (error) {
+      console.error("Error al anular venta:", error);
+      const errorMsg = error.response?.data?.message || "No se pudo anular la venta";
+      toast.error(errorMsg);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
-    <div className="dialog-overlay">
-      <div className="dialog-content">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-xl">
+        {/* Header */}
         <div className="flex items-center justify-between border-b pb-4">
           <h2 className="text-xl font-bold flex items-center gap-2 text-destructive">
             <AlertCircle className="h-5 w-5" /> Solicitar Anulación
           </h2>
-          <button onClick={onClose} className="hover:bg-accent p-1 rounded-full">
+          <button 
+            onClick={onClose} 
+            className="hover:bg-accent p-1 rounded-full transition-colors"
+            disabled={isSubmitting}
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
 
+        {/* Body */}
         <div className="py-4 space-y-4">
-          <p className="text-sm">
-            Estás solicitando anular la venta <span className="font-bold">#{saleId}</span>. 
-            Esta acción requiere aprobación de un administrador.
+          <p className="text-sm text-muted-foreground">
+            Estás a punto de anular la venta <span className="font-bold text-foreground">#{saleId}</span>. 
+            Esta acción revertirá el stock y marcará la orden como cancelada.
           </p>
           
           <div className="space-y-2">
             <label className="text-sm font-medium">Motivo de la anulación</label>
             <textarea 
-              className="input min-h-[100px] resize-none py-2" 
-              placeholder="Ej: Error en método de pago, cliente desistió, etc..."
+              className="w-full min-h-[100px] rounded-xl border border-border bg-background p-3 text-sm outline-none focus:ring-2 focus:ring-primary/20 resize-none" 
+              placeholder="Ej: Error en método de pago, cliente desistió, producto defectuoso..."
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              disabled={isSubmitting}
             />
           </div>
         </div>
 
-        <div className="flex gap-3">
-          <button onClick={onClose} className="flex-1 button button-outline">Cancelar</button>
-          <button className="flex-1 button button-destructive">Enviar Solicitud</button>
+        {/* Footer */}
+        <div className="flex gap-3 pt-2">
+          <button 
+            onClick={onClose} 
+            disabled={isSubmitting}
+            className="flex-1 rounded-xl border border-border py-2.5 text-sm font-medium hover:bg-accent disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+          <button 
+            onClick={handleSubmit}
+            disabled={isSubmitting}
+            className="flex-1 flex justify-center items-center rounded-xl bg-destructive py-2.5 text-sm font-semibold text-destructive-foreground hover:opacity-90 disabled:opacity-50"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Anulando...
+              </>
+            ) : (
+              "Confirmar Anulación"
+            )}
+          </button>
         </div>
       </div>
     </div>

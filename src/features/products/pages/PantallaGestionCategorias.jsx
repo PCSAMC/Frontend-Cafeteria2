@@ -1,95 +1,98 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Search, Pencil, Trash2, Tags, Boxes } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Tags, Boxes, Ban } from "lucide-react";
 import { ModalFormCategoria } from "../components/ModalFormCategoria";
-import { categoriesService } from "../services/categories.service";
-import { productsService } from "../services/products.service";
-
-const categoriasMock = [
-  { id: 1, nombre: "Bebidas", productosAsociados: 0, estado: "Activa" },
-  { id: 2, nombre: "Comidas", productosAsociados: 0, estado: "Activa" },
-  { id: 3, nombre: "Postres", productosAsociados: 0, estado: "Activa" },
-];
+import { useCategories } from "../hooks/useCategories"; 
+import { useProducts } from "../hooks/useProducts"; 
+import { toast } from "sonner";
 
 export const PantallaGestionCategorias = () => {
-  const [categorias, setCategorias] = useState(categoriasMock);
+  const { 
+    categories, 
+    loading: loadingCategorias, 
+    getAllCategories, 
+    createCategory, 
+    updateCategory 
+  } = useCategories();
+
+  // 1. Desestructuramos products (y asumimos que el hook tiene una función para traerlos, ej. getAllProducts)
+  // Le damos un valor por defecto [] para evitar errores si aún no carga
+  const { products = [], getAllProducts } = useProducts(); 
+
   const [busqueda, setBusqueda] = useState("");
   const [estado, setEstado] = useState("Todas");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const [openModal, setOpenModal] = useState(false);
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState(null);
+  const [openConfirmModal, setOpenConfirmModal] = useState(false);
+  const [categoriaADesactivar, setCategoriaADesactivar] = useState(null);
 
-  const cargarCategorias = async () => {
+  const confirmarDesactivacion = async () => {
+    if (!categoriaADesactivar) return;
     try {
-      setLoading(true);
-      setError("");
-      const [categoriasApi, productosApi] = await Promise.all([
-        categoriesService.getAll(),
-        productsService.getAll().catch(() => []),
-      ]);
-      const conConteo = categoriasApi.map((cat) => ({
-        ...cat,
-        productosAsociados: productosApi.filter(
-          (p) => Number(p.categoryId) === Number(cat.id),
-        ).length,
-      }));
-      setCategorias(conConteo.length ? conConteo : categoriasMock);
+      await updateCategory(categoriaADesactivar.id, { active: false });
+      await getAllCategories({ limit: 100, page: 1 });
+      setOpenConfirmModal(false);
+      setCategoriaADesactivar(null);
     } catch (err) {
-      setError(
-        "No se pudieron cargar categorías desde API. Se muestran datos de prueba.",
-      );
-      setCategorias(categoriasMock);
-    } finally {
-      setLoading(false);
+      toast.error(`Error al desactivar: ${err.message}`);
     }
   };
 
   useEffect(() => {
-    cargarCategorias();
-  }, []);
+    getAllCategories({ limit: 100, page: 1 });
+    
+    // 2. Llamamos a la función que trae los productos para que "products" se llene.
+    // (Ajusta el nombre de getAllProducts si tu hook lo llama diferente, ej: fetchProducts)
+    if (getAllProducts) {
+      // Traemos un límite alto para asegurarnos de tener todos y poder contarlos
+      getAllProducts({ limit: 1000, page: 1 }); 
+    }
+  }, [getAllCategories, getAllProducts]);
+console.log("🔍 productos desde el hook:", products) ;
+const categoriasFiltradas = useMemo(() => {
+  return categories
+    .map((cat) => ({
+      id: cat.id,
+      nombre: cat.name,
+      estado: cat.active ? "Activa" : "Inactiva",
+      // CAMBIO AQUÍ: Accedemos a p.category.id
+      productosAsociados: products.filter(
+        (p) => Number(p.category?.id) === Number(cat.id)
+      ).length,
+    }))
+    .filter((c) => {
+      const coincideTexto = c.nombre.toLowerCase().includes(busqueda.toLowerCase());
+      const coincideEstado = estado === "Todas" || c.estado === estado;
+      return coincideTexto && coincideEstado;
+    });
+}, [categories, products, busqueda, estado]);
 
-  const categoriasFiltradas = useMemo(
-    () =>
-      categorias.filter((c) => {
-        const coincideTexto = `${c.nombre} ${c.name}`
-          .toLowerCase()
-          .includes(busqueda.toLowerCase());
-        const coincideEstado = estado === "Todas" || c.estado === estado;
-        return coincideTexto && coincideEstado;
-      }),
-    [categorias, busqueda, estado],
-  );
-
-  const totalActivas = categorias.filter((c) => c.estado === "Activa").length;
-  const sinProductos = categorias.filter(
-    (c) => Number(c.productosAsociados) === 0,
-  ).length;
-  const totalProductosAsociados = categorias.reduce(
+  const totalActivas = categoriasFiltradas.filter((c) => c.estado === "Activa").length;
+  const sinProductos = categoriasFiltradas.filter((c) => Number(c.productosAsociados) === 0).length;
+  const totalProductosAsociados = categoriasFiltradas.reduce(
     (acc, item) => acc + Number(item.productosAsociados || 0),
-    0,
+    0
   );
 
   const handleSave = async (categoriaForm) => {
     try {
-      if (categoriaForm.id)
-        await categoriesService.update(categoriaForm.id, categoriaForm);
-      else await categoriesService.create(categoriaForm);
-      await cargarCategorias();
+      const payload = {
+        name: categoriaForm.nombre,
+        active: categoriaForm.active,
+      };
+
+      if (categoriaForm.id) {
+        await updateCategory(categoriaForm.id, payload);
+      } else {
+        await createCategory(payload);
+      }
+      await getAllCategories({ limit: 100, page: 1 });
+      setOpenModal(false);
     } catch (err) {
-      alert(`No se pudo guardar la categoría: ${err.message}`);
+      toast.error(`No se pudo guardar la categoría: ${err.message}`);
     }
   };
 
-  const handleEliminar = (categoria) => {
-    if (Number(categoria.productosAsociados) > 0) {
-      alert("No se puede eliminar una categoría con productos asociados.");
-      return;
-    }
-    alert(
-      "El backend no expone DELETE de categorías; se recomienda marcarla como Inactiva en Editar.",
-    );
-  };
-
+ 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="mx-auto max-w-7xl space-y-6">
@@ -110,16 +113,13 @@ export const PantallaGestionCategorias = () => {
             <Plus size={16} /> Nueva categoría
           </button>
         </div>
-        {error && (
-          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
-            {error}
-          </div>
-        )}
-        {loading && (
+
+        {loadingCategorias && (
           <p className="text-sm text-muted-foreground">
             Cargando categorías...
           </p>
         )}
+
         <div className="grid gap-4 md:grid-cols-3">
           <Card
             icon={<Tags size={18} />}
@@ -141,6 +141,7 @@ export const PantallaGestionCategorias = () => {
             warn
           />
         </div>
+
         <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
           <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
@@ -173,6 +174,7 @@ export const PantallaGestionCategorias = () => {
               </select>
             </div>
           </div>
+
           <div className="overflow-x-auto">
             <table className="w-full min-w-[760px] text-sm">
               <thead>
@@ -184,61 +186,96 @@ export const PantallaGestionCategorias = () => {
                 </tr>
               </thead>
               <tbody>
-                {categoriasFiltradas.map((c) => (
-                  <tr
-                    key={c.id}
-                    className="border-b border-border last:border-none"
-                  >
-                    <td className="px-3 py-4 font-semibold">{c.nombre}</td>
-                    <td className="px-3 py-4">
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-medium ${c.estado === "Activa" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}
-                      >
-                        {c.estado}
-                      </span>
-                    </td>
-                    <td className="px-3 py-4">{c.productosAsociados}</td>
-                    <td className="px-3 py-4">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => {
-                            setCategoriaSeleccionada(c);
-                            setOpenModal(true);
-                          }}
-                          className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent"
-                        >
-                          <Pencil size={13} /> Editar
-                        </button>
-                        <button
-                          onClick={() => handleEliminar(c)}
-                          className="inline-flex items-center gap-1 rounded-lg border border-destructive/40 px-3 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10"
-                        >
-                          <Trash2 size={13} /> Eliminar
-                        </button>
-                      </div>
+                {categoriasFiltradas.length === 0 && !loadingCategorias ? (
+                  <tr>
+                    <td colSpan={4} className="py-4 text-center text-muted-foreground">
+                      No se encontraron categorías.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  categoriasFiltradas.map((c) => (
+                    <tr
+                      key={c.id}
+                      className="border-b border-border last:border-none"
+                    >
+                      <td className="px-3 py-4 font-semibold">{c.nombre}</td>
+                      <td className="px-3 py-4">
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-medium ${
+                            c.estado === "Activa"
+                              ? "bg-primary/10 text-primary"
+                              : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          {c.estado}
+                        </span>
+                      </td>
+                      <td className="px-3 py-4">{c.productosAsociados}</td>
+                      <td className="px-3 py-4">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              setCategoriaSeleccionada(c);
+                              setOpenModal(true);
+                            }}
+                            className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent"
+                          >
+                            <Pencil size={13} /> Editar
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (c.estado === "Inactiva") {
+                                alert("Esta categoría ya está inactiva.");
+                                return;
+                              }
+                              setCategoriaADesactivar(c);
+                              setOpenConfirmModal(true);
+                            }}
+                            className="inline-flex items-center gap-1 rounded-lg border border-amber-500/40 px-3 py-1.5 text-xs font-medium text-amber-600 hover:bg-amber-500/10 dark:text-amber-400"
+                          >
+                            <Ban size={13} /> Desactivar
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
         </section>
       </div>
+
       <ModalFormCategoria
         open={openModal}
         onClose={() => setOpenModal(false)}
         categoria={categoriaSeleccionada}
         onSave={handleSave}
       />
+
+      <ModalConfirmacion
+        open={openConfirmModal}
+        onClose={() => {
+          setOpenConfirmModal(false);
+          setCategoriaADesactivar(null);
+        }}
+        onConfirm={confirmarDesactivacion}
+        categoria={categoriaADesactivar}
+      />
     </div>
   );
 };
 
+// Componente Card sin cambios
 const Card = ({ icon, title, value, subtitle, warn }) => (
   <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
     <div className="mb-3 flex items-center gap-3">
       <div
-        className={`rounded-xl p-2 ${warn ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" : "bg-primary/10 text-primary"}`}
+        className={`rounded-xl p-2 ${
+          warn
+            ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+            : "bg-primary/10 text-primary"
+        }`}
       >
         {icon}
       </div>
@@ -248,3 +285,36 @@ const Card = ({ icon, title, value, subtitle, warn }) => (
     <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
   </div>
 );
+
+const ModalConfirmacion = ({ open, onClose, onConfirm, categoria }) => {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 text-card-foreground shadow-xl">
+        <div className="mb-4 flex items-center gap-3 text-amber-500">
+          <Ban size={24} />
+          <h3 className="text-lg font-semibold text-foreground">¿Desactivar categoría?</h3>
+        </div>
+        <p className="mb-6 text-sm text-muted-foreground">
+          ¿Estás seguro de que deseas desactivar la categoría <strong>"{categoria?.nombre}"</strong>? <br/><br/>
+          Ya no estará disponible para asignar a nuevos productos.
+        </p>
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="rounded-xl border border-border px-4 py-2 text-sm font-medium hover:bg-accent"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={onConfirm}
+            className="rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600"
+          >
+            Sí, desactivar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};

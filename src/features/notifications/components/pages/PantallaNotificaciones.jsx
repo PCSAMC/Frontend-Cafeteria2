@@ -1,142 +1,290 @@
-import { useEffect, useState } from "react";
-import { AlertTriangle, Bell, CheckCircle2, ExternalLink } from "lucide-react";
+/* eslint-disable react-hooks/set-state-in-effect */
+/* eslint-disable no-unused-vars */
+import { useEffect, useState, useMemo } from "react";
+import { AlertTriangle, Bell, CheckCircle2, ExternalLink, Loader2, Banknote, History, Filter, Archive } from "lucide-react";
 import { Link } from "react-router-dom";
 import { ROUTES } from "@/utils/constants";
-import { productsService } from "@/features/products/services/products.service";
+import { useProducts } from "@/features/products/hooks/useProducts"; 
+import { useShifts } from "@/features/shifts/hooks/useShifts";
 
 export const PantallaNotificaciones = () => {
+  const { lowStockProducts, loadingLowStock, getLowStockProducts } = useProducts();
+  const { allShifts, loadingAllShifts, getAllShifts } = useShifts();
+  
   const [alertas, setAlertas] = useState([]);
   const [error, setError] = useState("");
-
-  const cargarAlertas = async () => {
-    try {
-      setError("");
-      const lowStock = await productsService.getLowStock();
-      setAlertas(
-        lowStock.map((p) => ({
-          id: p.id,
-          titulo: `${p.nombre} tiene stock bajo`,
-          descripcion: `Stock actual: ${p.stock} · mínimo configurado: ${p.stockMinimo}`,
-          tipo: p.stock <= 0 || p.stock < 3 ? "Crítica" : "Stock bajo",
-          leida: false,
-          producto: p,
-        })),
-      );
-    } catch (err) {
-      setError(
-        "No se pudo cargar stock bajo desde API. Se muestran alertas de prueba.",
-      );
-      setAlertas([
-        {
-          id: 1,
-          titulo: "Café molido tiene stock crítico",
-          descripcion: "Stock actual: 2 · mínimo: 5",
-          tipo: "Crítica",
-          leida: false,
-        },
-        {
-          id: 2,
-          titulo: "Croissant requiere reposición",
-          descripcion: "Stock actual: 4 · mínimo: 6",
-          tipo: "Stock bajo",
-          leida: false,
-        },
-      ]);
-    }
-  };
+  const [filtroActivo, setFiltroActivo] = useState("todas"); // todas | inventario | caja
 
   useEffect(() => {
-    cargarAlertas();
-  }, []);
+    const cargarTodo = async () => {
+      try {
+        setError("");
+        await Promise.all([
+          getLowStockProducts(),
+          getAllShifts({ limit: 20 })
+        ]);
+      } catch (err) {
+        setError("Error al sincronizar las notificaciones del sistema.");
+      }
+    };
+    cargarTodo();
+  }, [getLowStockProducts, getAllShifts]);
 
-  const marcarLeida = (id) =>
-    setAlertas((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, leida: true } : a)),
-    );
-  const pendientes = alertas.filter((a) => !a.leida).length;
+  // Lógica de unificación (Mapeo de Alertas)
+  useEffect(() => {
+    const rawProducts = Array.isArray(lowStockProducts) ? lowStockProducts : (lowStockProducts?.data || []);
+    const alertasStock = rawProducts.map(p => ({
+      id: `stock-${p.id}`,
+      originalId: p.id,
+      titulo: `${p.name || 'Producto'} con stock bajo`,
+      descripcion: `Quedan ${p.currentStock} unidades (Mínimo: ${p.minStock})`,
+      tipo: "Inventario",
+      gravedad: (p.currentStock ?? 0) <= 0 ? "Crítica" : "Media",
+      fecha: new Date(),
+      ruta: ROUTES.AJUSTE_STOCK,
+      leida: false
+    }));
+
+    const rawShifts = Array.isArray(allShifts) ? allShifts : (allShifts?.data || []);
+    const alertasCaja = rawShifts
+      .filter(s => s.discrepancyAlert === true)
+      .map(s => ({
+        id: `shift-${s.id}`,
+        originalId: s.id,
+        titulo: `Descuadre en Turno #${s.id}`,
+        descripcion: `Diferencia detectada de Bs. ${Number(s.discrepancy).toFixed(2)}`,
+        tipo: "Caja",
+        gravedad: "Crítica",
+        fecha: new Date(s.closedAt || s.openedAt),
+        ruta: ROUTES.TURNOS,
+        leida: false
+      }));
+
+    const todas = [...alertasStock, ...alertasCaja].sort((a, b) => b.fecha - a.fecha);
+    setAlertas(todas);
+  }, [lowStockProducts, allShifts]);
+
+  const marcarLeida = (id) => {
+    setAlertas(prev => prev.map(a => a.id === id ? { ...a, leida: true } : a));
+  };
+
+  const marcarTodasLeidas = () => {
+    setAlertas(prev => prev.map(a => ({ ...a, leida: true })));
+  };
+
+  // Filtrado de alertas
+  const alertasFiltradas = useMemo(() => {
+    if (filtroActivo === "todas") return alertas;
+    return alertas.filter(a => a.tipo.toLowerCase() === filtroActivo);
+  }, [alertas, filtroActivo]);
+
+  const pendientes = alertas.filter(a => !a.leida).length;
+  const criticas = alertas.filter(a => a.gravedad === "Crítica" && !a.leida).length;
+  const isLoading = loadingLowStock || loadingAllShifts;
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground p-4 md:p-8">
       <div className="mx-auto max-w-6xl space-y-6">
-        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">
-              Notificaciones
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Alertas visuales de stock mínimo conectadas a productos con bajo
-              stock.
-            </p>
-          </div>
-          <div className="rounded-2xl border border-border bg-card px-5 py-3 text-sm">
-            <strong>{pendientes}</strong> pendientes
+        
+        {/* HEADER MEJORADO */}
+        <div className="bg-gradient-to-br from-card via-card to-primary/5 p-8 rounded-3xl border border-border shadow-lg">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+            {/* Título y descripción */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-primary/10 rounded-2xl">
+                  <Bell className="text-primary" size={28} />
+                </div>
+                <div>
+                  <h1 className="text-4xl font-black tracking-tight text-foreground">
+                    Centro de Control
+                  </h1>
+                  <p className="text-muted-foreground text-sm mt-1">
+                    Monitoreo en tiempo real de inventario y operaciones
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Estadísticas */}
+            <div className="flex flex-wrap gap-3">
+              <div className="bg-card border border-border rounded-2xl px-6 py-4 shadow-sm hover-lift">
+                <div className="text-xs text-muted-foreground font-semibold uppercase tracking-wide mb-1">
+                  Pendientes
+                </div>
+                <div className="text-3xl font-black text-primary">{pendientes}</div>
+              </div>
+              <div className="bg-card border border-destructive/20 rounded-2xl px-6 py-4 shadow-sm hover-lift">
+                <div className="text-xs text-muted-foreground font-semibold uppercase tracking-wide mb-1">
+                  Críticas
+                </div>
+                <div className="text-3xl font-black text-destructive">{criticas}</div>
+              </div>
+            </div>
           </div>
         </div>
+
+        {/* FILTROS Y ACCIONES */}
+        <div className="bg-card border border-border rounded-2xl p-4 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            {/* Filtros */}
+            <div className="flex items-center gap-2">
+              <Filter size={18} className="text-muted-foreground" />
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setFiltroActivo("todas")}
+                  className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                    filtroActivo === "todas"
+                      ? "bg-primary text-primary-foreground shadow-md"
+                      : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  Todas ({alertas.length})
+                </button>
+                <button
+                  onClick={() => setFiltroActivo("inventario")}
+                  className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                    filtroActivo === "inventario"
+                      ? "bg-amber-500 text-white shadow-md"
+                      : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  Inventario ({alertas.filter(a => a.tipo === "Inventario").length})
+                </button>
+                <button
+                  onClick={() => setFiltroActivo("caja")}
+                  className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                    filtroActivo === "caja"
+                      ? "bg-green-600 text-white shadow-md"
+                      : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  Caja ({alertas.filter(a => a.tipo === "Caja").length})
+                </button>
+              </div>
+            </div>
+
+            {/* Acción rápida */}
+            {pendientes > 0 && (
+              <button
+                onClick={marcarTodasLeidas}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-green-500/10 text-green-700 dark:text-green-400 hover:bg-green-500/20 transition-all font-semibold text-sm"
+              >
+                <Archive size={16} />
+                Archivar todas
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* MENSAJE DE ERROR */}
         {error && (
-          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
+          <div className="bg-destructive/10 border border-destructive/30 rounded-2xl p-4 text-destructive text-sm">
             {error}
           </div>
         )}
-        <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-          <div className="mb-4 flex items-center gap-3">
-            <div className="rounded-xl bg-primary/10 p-2 text-primary">
-              <Bell size={18} />
+
+        {/* LISTADO DE ALERTAS */}
+        <div className="space-y-3">
+          {isLoading && alertas.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-32 gap-4">
+              <Loader2 className="animate-spin text-primary" size={48} />
+              <p className="text-muted-foreground font-medium">Cargando notificaciones...</p>
             </div>
-            <div>
-              <h2 className="text-xl font-semibold">Alertas activas</h2>
-              <p className="text-sm text-muted-foreground">
-                Productos con stock igual o menor al mínimo.
-              </p>
+          ) : alertasFiltradas.length === 0 ? (
+            <div className="text-center py-32 border-2 border-dashed border-border rounded-3xl bg-muted/20">
+              <CheckCircle2 size={64} className="mx-auto mb-4 text-green-500 opacity-50" />
+              <h3 className="text-xl font-bold text-foreground mb-2">Todo bajo control</h3>
+              <p className="text-muted-foreground">No hay alertas activas en este momento</p>
             </div>
-          </div>
-          <div className="space-y-3">
-            {alertas.length === 0 ? (
-              <p className="rounded-xl border border-border bg-background p-4 text-sm text-muted-foreground">
-                No hay alertas de stock bajo.
-              </p>
-            ) : (
-              alertas.map((alerta) => (
-                <article
-                  key={alerta.id}
-                  className={`rounded-2xl border p-4 ${alerta.leida ? "border-border bg-background/60 opacity-70" : "border-amber-500/30 bg-amber-500/10"}`}
-                >
-                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                    <div className="flex gap-3">
-                      <div
-                        className={`mt-1 rounded-xl p-2 ${alerta.tipo === "Crítica" ? "bg-destructive/10 text-destructive" : "bg-amber-500/10 text-amber-600 dark:text-amber-400"}`}
-                      >
-                        <AlertTriangle size={18} />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold">{alerta.titulo}</h3>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          {alerta.descripcion}
-                        </p>
-                        <span className="mt-2 inline-flex rounded-full bg-background px-3 py-1 text-xs font-medium">
-                          {alerta.tipo}
-                        </span>
-                      </div>
+          ) : (
+            alertasFiltradas.map((alerta, index) => (
+              <div 
+                key={alerta.id}
+                className={`group relative overflow-hidden rounded-2xl border transition-all duration-300 hover:shadow-xl ${
+                  alerta.leida 
+                    ? "bg-muted/30 opacity-50 border-border/50" 
+                    : "bg-card shadow-md border-border hover:border-primary/40 hover:scale-[1.01]"
+                }`}
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
+                {/* Barra lateral de color */}
+                <div className={`absolute left-0 top-0 h-full w-1.5 ${
+                  alerta.tipo === "Caja" 
+                    ? "bg-gradient-to-b from-green-500 to-green-600" 
+                    : "bg-gradient-to-b from-amber-500 to-amber-600"
+                }`} />
+
+                <div className="flex items-start gap-4 p-6 pl-8">
+                  {/* Icono con animación */}
+                  <div className={`relative p-4 rounded-2xl transition-transform group-hover:scale-110 ${
+                    alerta.tipo === "Caja" 
+                      ? "bg-gradient-to-br from-green-500/10 to-green-600/10 text-green-600 dark:text-green-400" 
+                      : "bg-gradient-to-br from-amber-500/10 to-amber-600/10 text-amber-600 dark:text-amber-400"
+                  }`}>
+                    {alerta.tipo === "Caja" ? (
+                      <Banknote size={28} strokeWidth={2.5} />
+                    ) : (
+                      <AlertTriangle size={28} strokeWidth={2.5} />
+                    )}
+                    {!alerta.leida && (
+                      <span className="absolute -top-1 -right-1 w-3 h-3 bg-destructive rounded-full animate-pulse" />
+                    )}
+                  </div>
+
+                  {/* Contenido */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                      <span className={`inline-flex items-center text-[11px] font-black uppercase px-3 py-1 rounded-lg border ${
+                        alerta.gravedad === "Crítica" 
+                          ? "bg-destructive/10 text-destructive border-destructive/30" 
+                          : "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30"
+                      }`}>
+                        {alerta.gravedad}
+                      </span>
+                      <span className="text-xs text-muted-foreground font-medium bg-muted/50 px-3 py-1 rounded-lg">
+                        {alerta.fecha.toLocaleDateString("es-BO", { 
+                          day: "2-digit", 
+                          month: "short", 
+                          year: "numeric" 
+                        })}
+                      </span>
+                      <span className="text-xs text-muted-foreground font-semibold bg-muted/50 px-3 py-1 rounded-lg">
+                        {alerta.tipo}
+                      </span>
                     </div>
-                    <div className="flex gap-2">
-                      <Link
-                        to={ROUTES.AJUSTE_STOCK}
-                        className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent"
-                      >
-                        <ExternalLink size={13} /> Ajustar stock
-                      </Link>
+                    <h3 className="font-bold text-lg text-foreground mb-1 group-hover:text-primary transition-colors">
+                      {alerta.titulo}
+                    </h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      {alerta.descripcion}
+                    </p>
+                  </div>
+
+                  {/* Acciones */}
+                  <div className="flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Link
+                      to={alerta.ruta}
+                      className="p-3 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary transition-all hover:scale-110"
+                      title="Ver detalle"
+                    >
+                      <ExternalLink size={20} strokeWidth={2.5} />
+                    </Link>
+                    {!alerta.leida && (
                       <button
                         onClick={() => marcarLeida(alerta.id)}
-                        className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90"
+                        className="p-3 rounded-xl bg-green-500/10 hover:bg-green-500/20 text-green-600 dark:text-green-400 transition-all hover:scale-110"
+                        title="Marcar como leída"
                       >
-                        <CheckCircle2 size={13} /> Leída
+                        <CheckCircle2 size={20} strokeWidth={2.5} />
                       </button>
-                    </div>
+                    )}
                   </div>
-                </article>
-              ))
-            )}
-          </div>
-        </section>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </div>
     </div>
   );

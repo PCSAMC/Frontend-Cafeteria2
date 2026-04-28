@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 
@@ -8,7 +9,17 @@ export const ModalFormCategoria = ({ open, onClose, categoria, onSave }) => {
 
   useEffect(() => {
     if (!open) return;
-    setForm(categoria ? { ...estadoInicial, ...categoria } : estadoInicial);
+    
+    // Si recibimos una categoría para editar, mapeamos sus datos al formulario
+    if (categoria) {
+      setForm({
+        id: categoria.id,
+        nombre: categoria.nombre, // Usamos 'nombre' porque ya lo mapeamos en la tabla
+        estado: categoria.estado, // Usamos 'estado' ("Activa" / "Inactiva")
+      });
+    } else {
+      setForm(estadoInicial);
+    }
   }, [open, categoria]);
 
   if (!open) return null;
@@ -16,12 +27,13 @@ export const ModalFormCategoria = ({ open, onClose, categoria, onSave }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!form.nombre.trim()) return;
+    
+    // Devolvemos el objeto preparado para nuestra función handleSave
     onSave?.({
-      ...form,
+      id: form.id,
       nombre: form.nombre.trim(),
-      active: form.estado === "Activa",
+      active: form.estado === "Activa", // Convertimos el string a boolean para la API
     });
-    onClose();
   };
 
   return (

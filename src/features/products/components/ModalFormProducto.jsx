@@ -1,4 +1,8 @@
+/* eslint-disable no-unused-vars */
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useState } from "react";
+import { uploadToCloudinary } from "@/api/claudinary.service"; // Ajusta la ruta si es necesario
+import { Loader2 } from "lucide-react";
 
 const estadoInicial = {
   categoryId: "",
@@ -18,10 +22,12 @@ export const ModalFormProducto = ({
   onSave,
 }) => {
   const [form, setForm] = useState(estadoInicial);
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     if (producto) {
+      // CORRECCIÓN: Usamos producto.nombre o producto.name de forma segura
       setForm({
         categoryId: producto.categoryId || producto.category?.id || "",
         nombre: producto.nombre || producto.name || "",
@@ -29,9 +35,7 @@ export const ModalFormProducto = ({
         precio: producto.precio ?? producto.salePrice ?? "",
         stockMinimo: producto.stockMinimo ?? producto.minStock ?? "",
         imageUrl: producto.imageUrl || "",
-        estado:
-          producto.estado ||
-          (producto.active === false ? "Inactivo" : "Activo"),
+        estado: producto.estado || (producto.active === false ? "Inactivo" : "Activo"),
       });
     } else {
       setForm({ ...estadoInicial, categoryId: categorias[0]?.id || "" });
@@ -45,17 +49,35 @@ export const ModalFormProducto = ({
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleImageChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setIsUploading(true);
+    try {
+      const url = await uploadToCloudinary(file);
+      setForm((prev) => ({ ...prev, imageUrl: url }));
+    } catch (error) {
+      alert("Error al subir la imagen a Cloudinary");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
+    
+    // CORRECCIÓN: Aquí es donde hacemos la "traducción" final para la API
+    // asegurándonos de que 'description' tome el valor de 'form.descripcion'
     onSave?.({
-      ...producto,
-      ...form,
+      id: producto?.id,
       categoryId: Number(form.categoryId),
-      precio: Number(form.precio || 0),
-      stockMinimo: Number(form.stockMinimo || 0),
+      name: form.nombre,
+      description: form.descripcion, 
+      salePrice: Number(form.precio || 0),
+      minStock: Number(form.stockMinimo || 0),
+      imageUrl: form.imageUrl,
       active: form.estado === "Activo",
     });
-    onClose();
   };
 
   return (
@@ -81,6 +103,7 @@ export const ModalFormProducto = ({
 
         <form onSubmit={handleSubmit} className="space-y-4 px-6 py-5">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            
             <label className="space-y-1.5">
               <span className="text-sm font-medium">Nombre *</span>
               <input
@@ -153,16 +176,35 @@ export const ModalFormProducto = ({
               </select>
             </label>
 
-            <label className="space-y-1.5">
-              <span className="text-sm font-medium">URL imagen</span>
-              <input
-                name="imageUrl"
-                value={form.imageUrl}
-                onChange={handleChange}
-                placeholder="https://..."
-                className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20"
-              />
-            </label>
+            <div className="space-y-1.5">
+              <span className="text-sm font-medium">Imagen del Producto</span>
+              <div className="flex items-center gap-3">
+                {form.imageUrl && (
+                  <img 
+                    src={form.imageUrl} 
+                    alt="Preview" 
+                    className="w-10 h-10 object-cover rounded-lg border border-border shrink-0" 
+                  />
+                )}
+                <div className="flex-1 w-full overflow-hidden">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    disabled={isUploading}
+                    className="block w-full text-xs text-muted-foreground 
+                      file:mr-2 file:py-1.5 file:px-3 
+                      file:rounded-lg file:border-0 
+                      file:text-xs file:font-medium 
+                      file:bg-primary/10 file:text-primary 
+                      hover:file:bg-primary/20 cursor-pointer disabled:opacity-50"
+                  />
+                </div>
+                {isUploading && <Loader2 className="animate-spin text-primary shrink-0" size={18} />}
+              </div>
+              <input type="hidden" name="imageUrl" value={form.imageUrl} />
+            </div>
+
           </div>
 
           <label className="block space-y-1.5">
@@ -187,7 +229,8 @@ export const ModalFormProducto = ({
             </button>
             <button
               type="submit"
-              className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90"
+              disabled={isUploading}
+              className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
             >
               Guardar
             </button>

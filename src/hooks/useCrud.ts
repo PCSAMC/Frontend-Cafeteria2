@@ -1,8 +1,10 @@
 import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 
+// En tu archivo donde está useCrud (ej. useCrud.ts)
+
 export interface CrudService<T, CreateDto, UpdateDto> {
-  getAll(params?: Record<string, any>): Promise<T[]>;
+  getAll(params?: Record<string, any>): Promise<any>; // <-- CAMBIA T[] por any
   getById(id: string | number): Promise<T>;
   create(data: CreateDto): Promise<T>;
   update(id: string | number, data: UpdateDto): Promise<T>;
@@ -16,20 +18,27 @@ export const useCrud = <T extends { id: string | number }, CreateDto, UpdateDto>
   const [data, setData] = useState<T[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
 
-  const getAll = useCallback(async (params: Record<string, any> = {}) => {
+const getAll = useCallback(async (params = {}) => {
     setLoading(true);
     try {
       const result = await serviceInstance.getAll(params);
-      setData(result);
+      
+      // LA MAGIA ESTÁ AQUÍ: 
+      // Si result es un arreglo, lo usamos tal cual. 
+      // Si es un objeto (paginado), buscamos la propiedad donde vienen los datos (usualmente .data o .items)
+      const dataArray = Array.isArray(result) 
+        ? result 
+        : (result.data || result.items || []);
+        
+      setData(dataArray); // Ahora sí, guardamos un arreglo real
       return result;
-    } catch (err: any) {
+    } catch (err) {
       toast.error('Error al obtener los datos');
       throw err;
     } finally {
       setLoading(false);
     }
   }, [serviceInstance]);
-
   const create = async (newData: CreateDto) => {
     console.log('Datos para crear:', newData); // Debugging
     setLoading(true);
@@ -76,7 +85,17 @@ export const useCrud = <T extends { id: string | number }, CreateDto, UpdateDto>
       setLoading(false);
     }
   };
-
+const getById = useCallback(async (id: string | number) => {
+    setLoading(true);
+    try {
+      return await serviceInstance.getById(id);
+    } catch (err) {
+      toast.error('Error al obtener el registro');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [serviceInstance]);
   const deactivate = async (id: number | string) => {
     setLoading(true);
     try {
@@ -86,5 +105,5 @@ export const useCrud = <T extends { id: string | number }, CreateDto, UpdateDto>
     }
   };
 
-  return { data, loading, getAll, create, update, remove, deactivate };
+  return { data, loading,getById, getAll, create, update, remove, deactivate };
 };
