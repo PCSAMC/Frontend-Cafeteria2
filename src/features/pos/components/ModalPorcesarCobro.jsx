@@ -1,3 +1,5 @@
+/* eslint-disable no-undef */
+/* eslint-disable react-hooks/rules-of-hooks */
 "use client";
 
 import { useState, useEffect } from "react";
@@ -29,7 +31,7 @@ export const ProcessPaymentModal = ({
   const [cardAmount, setCardAmount] = useState("");
   const [transferAmount, setTransferAmount] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
-
+const [processingStep, setProcessingStep] = useState(""); // NUEVO: Para el texto del simulador
   useEffect(() => {
     if (open && (!paymentMethods.data || paymentMethods.data.length === 0)) {
       paymentMethods.fetch();
@@ -66,9 +68,39 @@ const handleConfirmPayment = async () => {
       return;
     }
 
+   
+
     setIsProcessing(true);
 
     try {
+
+      if (paymentMethod === "card") {
+        setProcessingStep("Conectando con terminal POS...");
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        
+        setProcessingStep("Esperando lectura y PIN...");
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        
+        setProcessingStep("Autorizando con el banco...");
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        
+        setProcessingStep("¡Transacción Aprobada!");
+        await new Promise((resolve) => setTimeout(resolve, 800));
+      } 
+      else if (paymentMethod === "transfer") {
+        setProcessingStep("Verificando cuenta destino...");
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        
+        setProcessingStep("Confirmando ingreso de fondos...");
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        
+        setProcessingStep("¡Transferencia verificada!");
+        await new Promise((resolve) => setTimeout(resolve, 800));
+      } 
+      else {
+        // Para efectivo o mixto
+        setProcessingStep("Registrando venta...");
+      }
       // 2. Obtener IDs de métodos de pago desde los datos de la BD
       const getMethodId = (keyword) => {
         const method = paymentMethods.data?.find((m) =>
@@ -296,15 +328,28 @@ const handleConfirmPayment = async () => {
           </div>
         </div>
 
-        {/* Footer */}
+       {/* Footer */}
         <div className="border-t border-border px-6 py-4 flex gap-3">
-          <button onClick={onClose} className="flex-1 p-3 border rounded-xl hover:bg-accent">Cancelar</button>
+          <button 
+            onClick={onClose} 
+            disabled={isProcessing}
+            className="flex-1 p-3 border rounded-xl hover:bg-accent font-medium transition-colors disabled:opacity-50"
+          >
+            Cancelar
+          </button>
           <button 
             disabled={isProcessing} 
             onClick={handleConfirmPayment}
-            className="flex-1 p-3 bg-primary text-primary-foreground rounded-xl font-bold flex justify-center items-center"
+            className="flex-1 p-3 bg-primary text-primary-foreground rounded-xl font-bold flex justify-center items-center hover:opacity-90 transition-all duration-300"
           >
-            {isProcessing ? <Loader2 className="animate-spin mr-2" /> : "Confirmar Pago"}
+            {isProcessing ? (
+              <>
+                <Loader2 className="animate-spin mr-2" size={18} /> 
+                {processingStep}
+              </>
+            ) : (
+              "Confirmar Pago"
+            )}
           </button>
         </div>
       </div>

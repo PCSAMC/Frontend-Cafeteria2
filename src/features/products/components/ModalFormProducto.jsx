@@ -116,7 +116,7 @@ export const ModalFormProducto = ({
               />
             </label>
 
-            <label className="space-y-1.5">
+           <label className="space-y-1.5">
               <span className="text-sm font-medium">Categoría *</span>
               <select
                 required
@@ -126,11 +126,17 @@ export const ModalFormProducto = ({
                 className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20"
               >
                 <option value="">Seleccionar categoría</option>
-                {categorias.map((categoria) => (
-                  <option key={categoria.id} value={categoria.id}>
-                    {categoria.nombre || categoria.name}
-                  </option>
-                ))}
+                {categorias
+                  // 1. FILTRAMOS AQUÍ: 
+                  // Mostrar si está activa, O si es la categoría actual del producto que estamos editando
+                  .filter((categoria) => categoria.active || String(categoria.id) === String(form.categoryId))
+                  // 2. LUEGO DIBUJAMOS:
+                  .map((categoria) => (
+                    <option key={categoria.id} value={categoria.id}>
+                      {categoria.nombre || categoria.name}
+                    </option>
+                  ))
+                }
               </select>
             </label>
 

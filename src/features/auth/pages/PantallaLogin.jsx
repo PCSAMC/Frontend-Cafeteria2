@@ -1,8 +1,7 @@
 import React, { useState } from "react";
 import { Eye, EyeOff, ArrowRight, Lock, User } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
-import { Link } from "react-router-dom";
-import { ROUTES } from "@/utils/constants";
+
 
 export const PantallaLogin = () => {
   const { username, setUsername, password, setPassword, handleLogin, error } =

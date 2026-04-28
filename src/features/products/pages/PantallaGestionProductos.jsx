@@ -119,7 +119,7 @@ const { createMovement } = useStock();
       
       // 3. Cerramos el modal
       setOpenModalStock(false);
-      alert("¡Stock actualizado y movimiento registrado en el historial!");
+      
     } catch (err) {
       alert(`Error al registrar el movimiento de stock: ${err.message}`);
     }

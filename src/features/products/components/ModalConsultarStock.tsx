@@ -180,7 +180,7 @@ export const ModalConsultarStock = ({
                 />
               </label>
               <label className="space-y-1">
-                <span className="text-sm font-medium">Motivo / proveedor</span>
+                <span className="text-sm font-medium">Motivo </span>
                 <input
                   value={motivo}
                   onChange={(e) => setMotivo(e.target.value)}
