@@ -2,6 +2,9 @@ import React, { useState, useEffect } from "react";
 import { Search, Plus, Loader2, Edit2, Power, PowerOff } from "lucide-react";
 import { useUserCrud } from "../hooks/useUserCrud";
 import { ModalFormularioAdmin } from "../components/ModalFormularioAdmin";
+import { toast } from "sonner";
+// IMPORTANTE: Asegúrate de importar el userService para poder llamar a deactivateUser
+import { userService } from "../services/user.service"; 
 
 export const PantallaGestionAdministradores = () => {
   const [query, setQuery] = useState("");
@@ -33,11 +36,23 @@ export const PantallaGestionAdministradores = () => {
     }
   };
 
-  const handleToggleStatus = async (admin) => {
-    await update(admin.id, { active: !admin.active });
-    await getAdministrators();
+  // CORRECCIÓN DEL ERROR 404:
+  // Usamos el endpoint específico en lugar del 'update' genérico
+const handleToggleStatus = async (admin) => {
+    try {
+      if (admin.active) {
+        // CORRECCIÓN AQUÍ: Usamos deactivate() en lugar de deactivateUser()
+        await userService.deactivate(admin.id);
+        toast.success(`Administrador ${admin.username} desactivado.`);
+      } else {
+        toast.info("Función de activación pendiente de configurar");
+      }
+      await getAdministrators();
+    } catch (error) {
+      console.error("Error al cambiar estado:", error);
+      toast.error("No se pudo cambiar el estado del administrador.");
+    }
   };
-
   // Métricas para las cards
   const totalAdmins = (admins || []).length;
   const adminsActivos = (admins || []).filter((a) => a.active).length;
@@ -57,7 +72,7 @@ export const PantallaGestionAdministradores = () => {
             onClick={() => { setSelectedAdmin(null); setIsModalOpen(true); }}
             className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90"
           >
-            <Plus size={16} /> Nuevo administrador
+            <Plus size={16} /> <span>Nuevo administrador</span>
           </button>
         </div>
 
@@ -177,10 +192,10 @@ export const PantallaGestionAdministradores = () => {
                             onClick={() => { setSelectedAdmin(admin); setIsModalOpen(true); }}
                             className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-accent"
                           >
-                            <Edit2 size={13} /> Editar
+                            <Edit2 size={13} /> <span>Editar</span>
                           </button>
 
-                          {/* Activar / Desactivar */}
+                          {/* Activar / Desactivar - CORRECCIÓN DEL TEXTO SUELTO */}
                           <button
                             onClick={() => handleToggleStatus(admin)}
                             className={`inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs ${
@@ -190,8 +205,8 @@ export const PantallaGestionAdministradores = () => {
                             }`}
                           >
                             {admin.active
-                              ? <><PowerOff size={13} /> Desactivar</>
-                              : <><Power size={13} /> Activar</>
+                              ? <><PowerOff size={13} /> <span>Desactivar</span></>
+                              : <><Power size={13} /> <span>Activar</span></>
                             }
                           </button>
                         </div>

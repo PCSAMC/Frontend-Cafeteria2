@@ -19,7 +19,7 @@ class UserService extends BaseService<UserEntityDto, CreateUserDto, UpdateUserDt
   // Método específico para Administradores
   async getAdmins(): Promise<UserEntityDto[]> {
     const response = await apiClient.get<UsersResponseDto>(this.endpoint, {
-      params: { roleId: 2, active: true }
+      params: { roleId: 2 }
     });
     console.log('Respuesta de getAdmins:', response.data.data); // LOG para verificar la estructura
     return response.data.data;

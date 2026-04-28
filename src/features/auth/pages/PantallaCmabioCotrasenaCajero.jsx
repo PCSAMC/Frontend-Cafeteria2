@@ -1,9 +1,10 @@
+/* eslint-disable no-unused-vars */
 /* eslint-disable react-refresh/only-export-components */
 import React, { useState } from 'react';
 import { ArrowRight, Lock, KeyRound, Eye, EyeOff } from 'lucide-react';
 import { useChangePassword } from '../hooks/useCambioContraseña'; 
 
-const PasswordField = ({ label, value, onChange, placeholder, focused, onFocus, onBlur, fieldKey }) => {
+const PasswordField = ({ label, value, onChange, placeholder, focused, onFocus, onBlur, fieldKey,icon: Icon }) => {
   const [show, setShow] = useState(false);
   return (
     <div>

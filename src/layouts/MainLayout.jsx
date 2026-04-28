@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Users, FileText, Settings, Database,
   Bell, LogOut, Sun, Moon, Store, PanelLeft,
   ShoppingCart, Package, Tag, ArrowLeftRight,
   History, ClipboardList, ShieldAlert, ListOrdered,
-  UserCircle, KeyRound,
+  UserCircle, KeyRound, Menu, X,
   User,
 } from "lucide-react";
 import { ROUTES } from "@/utils/constants";
@@ -61,19 +61,127 @@ const ROL_META = {
 };
 
 // ══════════════════════════════════════════════════════
-//  COMPONENTE
+//  COMPONENTE SIDEBAR (reutilizable Desktop/Mobile)
+// ══════════════════════════════════════════════════════
+const SidebarContent = ({ rol, links, rolMeta, nombreUsuario, onLinkClick }) => {
+  return (
+    <div className="w-full flex flex-col h-full overflow-hidden">
+      {/* Logo */}
+      <div className="h-20 flex items-center px-6 shrink-0">
+        <div className="w-10 h-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center mr-3 shadow-md shrink-0">
+          <Store size={20} strokeWidth={2.5} />
+        </div>
+        <div>
+          <h1 className="font-bold text-lg tracking-tight text-white leading-tight">
+            Café UCB
+          </h1>
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/50">
+            {rolMeta.badge}
+          </span>
+        </div>
+      </div>
+
+      {/* Separador */}
+      <div className="mx-4 h-px bg-white/5 mb-3 shrink-0" />
+
+      {/* Navegación principal */}
+      <nav className="flex-1 overflow-y-auto px-3 space-y-0.5 pb-2">
+        {links.map((item) => (
+          <NavLink
+            key={item.path}
+            to={item.path}
+            onClick={onLinkClick}
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
+               transition-all duration-150 group
+               ${isActive
+                 ? "bg-black/25 text-primary"
+                 : "text-sidebar-foreground/65 hover:bg-white/5 hover:text-white"
+               }`
+            }
+          >
+            {({ isActive }) => (
+              <>
+                <item.icon
+                  size={16}
+                  className={isActive ? "text-primary" : "opacity-70 group-hover:opacity-100"}
+                />
+                {item.title}
+              </>
+            )}
+          </NavLink>
+        ))}
+      </nav>
+
+      {/* Separador */}
+      <div className="mx-4 h-px bg-white/5 shrink-0" />
+
+      {/* Links comunes (perfil, cambio contraseña) */}
+      <div className="px-3 py-2 space-y-0.5 shrink-0">
+        {SIDEBAR_BOTTOM_LINKS.map((item) => (
+          <NavLink
+            key={item.path}
+            to={item.path}
+            onClick={onLinkClick}
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium
+               transition-all duration-150 group
+               ${isActive
+                 ? "bg-black/25 text-primary"
+                 : "text-sidebar-foreground/45 hover:bg-white/5 hover:text-white/80"
+               }`
+            }
+          >
+            {({ isActive }) => (
+              <>
+                <item.icon size={14} className={isActive ? "text-primary" : "opacity-60"} />
+                {item.title}
+              </>
+            )}
+          </NavLink>
+        ))}
+      </div>
+
+      {/* Separador */}
+      <div className="mx-4 h-px bg-white/5 shrink-0" />
+
+      {/* Avatar de usuario */}
+      <div className="p-4 shrink-0">
+        <div className="flex items-center gap-3 px-1">
+          <Avatar className="w-8 h-8 border border-white/10 shrink-0">
+            <AvatarImage src="" />
+            <AvatarFallback className="bg-primary/20 text-primary text-[10px] font-bold">
+              {rolMeta.initials}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex flex-col min-w-0">
+            <span className="text-sm font-semibold text-white truncate">
+              {nombreUsuario}
+            </span>
+            <span className="text-[10px] text-sidebar-foreground/40 truncate">
+              {rolMeta.label}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ══════════════════════════════════════════════════════
+//  COMPONENTE PRINCIPAL
 // ══════════════════════════════════════════════════════
 export const MainLayout = ({ rol = "admin" }) => {
   const { theme, setTheme } = useTheme();
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   let nombreUsuario = "Usuario";
   try {
     const userDataString = localStorage.getItem("userData");
     if (userDataString) {
       const userData = JSON.parse(userDataString);
-      // Buscamos fullName, pero por si acaso dejamos opciones de fallback
       nombreUsuario = userData.fullName || userData.fullname || userData.nombre || "Usuario";
     }
   } catch (error) {
@@ -92,11 +200,28 @@ export const MainLayout = ({ rol = "admin" }) => {
     weekday: "short", day: "numeric", month: "short", year: "numeric",
   }).replace(/,/g, "");
 
+  // Cerrar sidebar móvil al cambiar de ruta
+  useEffect(() => {
+    setIsMobileSidebarOpen(false);
+  }, [location.pathname]);
+
+  // Prevenir scroll cuando el menú móvil está abierto
+  useEffect(() => {
+    if (isMobileSidebarOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isMobileSidebarOpen]);
+
   return (
     <div className="flex h-screen bg-background text-foreground overflow-hidden font-sans">
 
       {/* ══════════════════════════════════════════════
-          SIDEBAR
+          SIDEBAR DESKTOP
       ══════════════════════════════════════════════ */}
       <aside
         className={`
@@ -105,109 +230,50 @@ export const MainLayout = ({ rol = "admin" }) => {
           shadow-xl transition-all duration-300 ease-in-out border-r border-white/5
         `}
       >
-        <div className="w-64 flex flex-col h-full overflow-hidden">
-
-          {/* Logo */}
-          <div className="h-20 flex items-center px-6 shrink-0 min-w-max">
-            <div className="w-10 h-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center mr-3 shadow-md shrink-0">
-              <Store size={20} strokeWidth={2.5} />
-            </div>
-            <div>
-              <h1 className="font-bold text-lg tracking-tight text-white leading-tight">
-                Café UCB
-              </h1>
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/50">
-                {rolMeta.badge}
-              </span>
-            </div>
-          </div>
-
-          {/* Separador */}
-          <div className="mx-4 h-px bg-white/5 mb-3 shrink-0" />
-
-          {/* Navegación principal */}
-          <nav className="flex-1 overflow-y-auto px-3 space-y-0.5 min-w-max pb-2">
-            {links.map((item) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
-                   transition-all duration-150 group
-                   ${isActive
-                     ? "bg-black/25 text-primary"
-                     : "text-sidebar-foreground/65 hover:bg-white/5 hover:text-white"
-                   }`
-                }
-              >
-                {({ isActive }) => (
-                  <>
-                    <item.icon
-                      size={16}
-                      className={isActive ? "text-primary" : "opacity-70 group-hover:opacity-100"}
-                    />
-                    {item.title}
-                  </>
-                )}
-              </NavLink>
-            ))}
-          </nav>
-
-          {/* Separador */}
-          <div className="mx-4 h-px bg-white/5 shrink-0" />
-
-          {/* Links comunes (perfil, cambio contraseña) */}
-          <div className="px-3 py-2 space-y-0.5 min-w-max shrink-0">
-            {SIDEBAR_BOTTOM_LINKS.map((item) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium
-                   transition-all duration-150 group
-                   ${isActive
-                     ? "bg-black/25 text-primary"
-                     : "text-sidebar-foreground/45 hover:bg-white/5 hover:text-white/80"
-                   }`
-                }
-              >
-                {({ isActive }) => (
-                  <>
-                    <item.icon size={14} className={isActive ? "text-primary" : "opacity-60"} />
-                    {item.title}
-                  </>
-                )}
-              </NavLink>
-            ))}
-          </div>
-
-          {/* Separador */}
-          <div className="mx-4 h-px bg-white/5 shrink-0" />
-
-          {/* Avatar de usuario */}
-          {/* Avatar de usuario */}
-          <div className="p-4 shrink-0 min-w-max">
-            <div className="flex items-center gap-3 px-1">
-              <Avatar className="w-8 h-8 border border-white/10 shrink-0">
-                <AvatarImage src="" />
-                <AvatarFallback className="bg-primary/20 text-primary text-[10px] font-bold">
-                  {rolMeta.initials}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex flex-col min-w-0">
-                {/* 👇 AQUÍ USAMOS LA VARIABLE nombreUsuario 👇 */}
-                <span className="text-sm font-semibold text-white truncate">
-                  {nombreUsuario}
-                </span>
-                <span className="text-[10px] text-sidebar-foreground/40 truncate">
-                  {rolMeta.label}
-                </span>
-              </div>
-            </div>
-          </div>
-
+        <div className="w-64">
+          <SidebarContent 
+            rol={rol}
+            links={links}
+            rolMeta={rolMeta}
+            nombreUsuario={nombreUsuario}
+            onLinkClick={() => {}}
+          />
         </div>
       </aside>
+
+      {/* ══════════════════════════════════════════════
+          SIDEBAR MÓVIL (Overlay)
+      ══════════════════════════════════════════════ */}
+      {isMobileSidebarOpen && (
+        <>
+          {/* Overlay oscuro */}
+          <div 
+            className="fixed inset-0 bg-black/50 z-40 md:hidden animate-fade-in"
+            onClick={() => setIsMobileSidebarOpen(false)}
+          />
+          
+          {/* Sidebar deslizable */}
+          <aside className="fixed inset-y-0 left-0 w-64 bg-sidebar text-sidebar-foreground z-50 md:hidden shadow-2xl animate-slide-right">
+            <div className="relative h-full">
+              {/* Botón cerrar */}
+              <button
+                onClick={() => setIsMobileSidebarOpen(false)}
+                className="absolute top-4 right-4 p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors z-10"
+              >
+                <X size={20} />
+              </button>
+              
+              <SidebarContent 
+                rol={rol}
+                links={links}
+                rolMeta={rolMeta}
+                nombreUsuario={nombreUsuario}
+                onLinkClick={() => setIsMobileSidebarOpen(false)}
+              />
+            </div>
+          </aside>
+        </>
+      )}
 
       {/* ══════════════════════════════════════════════
           MAIN CONTENT
@@ -215,14 +281,14 @@ export const MainLayout = ({ rol = "admin" }) => {
       <main className="flex-1 flex flex-col min-w-0 bg-background relative overflow-hidden">
 
         {/* NAVBAR */}
-        <header className="h-16 px-6 flex items-center justify-between bg-sidebar border-b border-white/5 z-10 shadow-md shrink-0">
+        <header className="h-14 sm:h-16 px-3 sm:px-6 flex items-center justify-between bg-sidebar border-b border-white/5 z-10 shadow-md shrink-0">
 
-          <div className="flex items-center gap-3">
-            {/* Toggle sidebar */}
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+            {/* Toggle sidebar DESKTOP */}
             <Button
               variant="ghost"
               size="icon"
-              className="rounded-lg w-9 h-9 text-sidebar-foreground hover:bg-white/10 hover:text-white hidden md:flex"
+              className="rounded-lg w-9 h-9 text-sidebar-foreground hover:bg-white/10 hover:text-white hidden md:flex shrink-0"
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
             >
               <PanelLeft
@@ -230,13 +296,25 @@ export const MainLayout = ({ rol = "admin" }) => {
                 className={!isSidebarOpen ? "rotate-180 transition-transform" : "transition-transform"}
               />
             </Button>
-            <h2 className="text-base font-semibold tracking-tight text-white">
+
+            {/* Menú hamburguesa MÓVIL */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-lg w-9 h-9 text-sidebar-foreground hover:bg-white/10 hover:text-white md:hidden shrink-0"
+              onClick={() => setIsMobileSidebarOpen(true)}
+            >
+              <Menu size={20} />
+            </Button>
+
+            {/* Título de la página */}
+            <h2 className="text-sm sm:text-base font-semibold tracking-tight text-white truncate">
               {currentTitle}
             </h2>
           </div>
 
-          <div className="flex items-center gap-3">
-            {/* Fecha y hora */}
+          <div className="flex items-center gap-1 sm:gap-3 shrink-0">
+            {/* Fecha y hora - oculto en móvil */}
             <span className="text-xs font-medium text-sidebar-foreground/50 hidden lg:block">
               {today} · {new Date().toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
             </span>
@@ -249,7 +327,7 @@ export const MainLayout = ({ rol = "admin" }) => {
               <Button
                 variant="ghost"
                 size="icon"
-                className="rounded-full w-9 h-9 text-sidebar-foreground hover:bg-white/10 hover:text-white"
+                className="rounded-full w-8 h-8 sm:w-9 sm:h-9 text-sidebar-foreground hover:bg-white/10 hover:text-white"
                 onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
               >
                 {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
@@ -261,27 +339,23 @@ export const MainLayout = ({ rol = "admin" }) => {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="rounded-full w-9 h-9 text-sidebar-foreground hover:bg-white/10 hover:text-white relative"
+                    className="rounded-full w-8 h-8 sm:w-9 sm:h-9 text-sidebar-foreground hover:bg-white/10 hover:text-white relative"
                   >
                     <Bell size={16} />
-                    <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-destructive rounded-full" />
+                    <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-destructive rounded-full" />
                   </Button>
                 </NavLink>
               )}
 
               {/* Logout */}
-           {/* Logout en MainLayout.jsx */}
               <Button
                 variant="ghost"
                 size="icon"
-                className="rounded-full w-9 h-9 text-sidebar-foreground hover:bg-destructive/20 hover:text-destructive transition-colors"
+                className="rounded-full w-8 h-8 sm:w-9 sm:h-9 text-sidebar-foreground hover:bg-destructive/20 hover:text-destructive transition-colors"
                 onClick={() => {
-                  // Limpiamos los datos guardados
                   localStorage.removeItem('accessToken');
                   localStorage.removeItem('userRole');
                   localStorage.removeItem('userData');
-                  
-                  // Redirigimos al login
                   window.location.href = ROUTES.LOGIN;
                 }}
               >
@@ -293,7 +367,7 @@ export const MainLayout = ({ rol = "admin" }) => {
         </header>
 
         {/* ÁREA DE PÁGINAS */}
-        <div className="flex-1 overflow-auto p-6">
+        <div className="flex-1 overflow-auto p-3 sm:p-4 md:p-6">
           <Outlet />
         </div>
 
